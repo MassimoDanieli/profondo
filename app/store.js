@@ -38,6 +38,8 @@ export const Library = {
   async get(id) { try { return await tx([STORE], 'readonly', (t) => t.objectStore(STORE).get(id)); } catch { return null; } },
   async has(id) { try { return !!(await tx([META], 'readonly', (t) => t.objectStore(META).getKey(id))); } catch { return false; } },
   async del(id) { try { await tx([STORE, META], 'readwrite', (t) => { t.objectStore(STORE).delete(id); t.objectStore(META).delete(id); }); } catch {} },
+  // change catalogue fields (e.g. the NAM category) without touching the file bytes
+  async patch(id, fields) { try { await tx([META], 'readwrite', (t) => { const st = t.objectStore(META); const r = st.get(id); r.onsuccess = () => { if (r.result) st.put({ ...r.result, ...fields }); }; }); } catch {} },
   async list() { try { return (await tx([META], 'readonly', (t) => t.objectStore(META).getAll())) || []; } catch { return []; } },
 };
 

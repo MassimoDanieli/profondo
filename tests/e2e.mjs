@@ -38,10 +38,11 @@ const w = await page.evaluate(async () => {
   const wcall = (msg, tr) => new Promise((r) => { worker.onmessage = (e) => r(e.data); worker.postMessage(msg, tr || []); });
   await wcall({ type: 'init', bytes: wbytes.slice(0) });
   const build = async (u) => { const bytes = await (await fetch(u)).arrayBuffer(); return wcall({ type: 'load', req: 1, bytes, sampleRate: 48000 }, [bytes]); };
-  node.port.postMessage({ type: 'params', p: { normalize: 1, 'pedal.on': 0 } });
+  node.port.postMessage({ type: 'params', p: { normalize: 1 } });
+  node.port.postMessage({ type: 'board', list: [{ uid: 'x1', type: 'nam', variant: '', on: false, p: { input: 0, level: 0 } }] });
   const bA = await build('/models/A2.nam'), bP = await build('/models/A2.nam');
   node.port.postMessage({ type: 'adopt', slot: 'amp', id: 'A2', activate: true, info: bA.info, snapshot: bA.snapshot, req: 2 }, [bA.snapshot]);
-  node.port.postMessage({ type: 'adopt', slot: 'pedal', id: 'A2', activate: true, info: bP.info, snapshot: bP.snapshot, req: 3 }, [bP.snapshot]);
+  node.port.postMessage({ type: 'adopt', slot: 'nam:x1', id: 'A2', activate: true, info: bP.info, snapshot: bP.snapshot, req: 3 }, [bP.snapshot]);
   const src = ctx.createBufferSource(); const buf = ctx.createBuffer(1, N, 48000); buf.getChannelData(0).set(sig); src.buffer = buf; src.connect(node); node.connect(ctx.destination, 0); src.start();
   const r = (await ctx.startRendering()).getChannelData(0);
   await new Promise((res) => setTimeout(res, 300));
@@ -81,7 +82,8 @@ const a = await page.evaluate(async () => {
   midi.settings.clock = true; const iv = 60000 / 100 / 24; midi.clockTimes = []; for (let i = 0; i < 48; i++) midi.clockTimes.push(i * iv);
   const now = performance.now; performance.now = () => 48 * iv; midi.clockTick(); performance.now = now; out.clockBpm = P.state.p.bpm;
   await P.recall(0); out.cleanDiAmp = P.state.p['amp.on'];
-  for (const k of ['gate.on', 'comp.on', 'drive.on', 'amp.on', 'eq.on', 'cab.on', 'delay.on', 'rev.on']) P.setParam(k, true);
+  for (const b of P.state.board) P.setParam(`pb.${b.uid}.on`, true);
+  for (const k of ['amp.on', 'eq.on', 'cab.on', 'delay.on', 'rev.on']) P.setParam(k, true);
   P.setParam('blend.amount', 40); P.setParam('blend.xover', 150);
   await new Promise((r) => setTimeout(r, 1200));
   const b = new Float32Array(1024); P.engine.outAnalyser.getFloatTimeDomainData(b); out.finite = b.every(Number.isFinite);
@@ -100,7 +102,8 @@ const al = await page.evaluate(async () => {
   const P = window.__profondo, e = P.engine, ctx = e.ctx, sr = ctx.sampleRate, res = [];
   e.srcNode.disconnect();
   // known-delay check: keep the chain neutral (drive's high-pass and EQ shift the low-frequency phase on purpose)
-  for (const k of ['gate.on', 'drive.on', 'delay.on', 'rev.on', 'comp.on']) P.setParam(k, false);
+  for (const b of P.state.board) P.setParam(`pb.${b.uid}.on`, false);
+  for (const k of ['delay.on', 'rev.on']) P.setParam(k, false);
   for (const k of ['eq.bass', 'eq.lowmid', 'eq.mid', 'eq.treble', 'eq.presence', 'blend.xover']) P.setParam(k, 0);
   const N = sr * 8, buf = ctx.createBuffer(1, N, sr), d = buf.getChannelData(0); const notes = [41.2, 55, 73.4, 98, 61.7, 82.4]; let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -116,6 +119,72 @@ const al = await page.evaluate(async () => {
   return res;
 });
 for (const r of al) check(r.got && Math.abs(r.got.ms - r.ms) < 0.8 && r.got.invert === r.invert, `auto-align finds ${r.ms} ms${r.invert ? ' inverted' : ''}`, r.got ? `${r.got.ms} ms, invert ${r.got.invert}` : 'no result');
+
+// ---- 3a. pedalboard: add, types, order, migration, NAM pedals, every pedal type produces sane audio
+{
+  const r = await page.evaluate(async () => {
+    const P = window.__profondo, out = {};
+    const dbg = () => new Promise((res) => { const e = P.engine; const h = (m) => { if (m.data.type === 'debug') { e.front.port.removeEventListener('message', h); res(m.data); } }; e.front.port.addEventListener('message', h); e.front.port.postMessage({ type: 'debug' }); });
+    // legacy v0.3 preset → board
+    const n = P.normalizePreset({ params: { 'comp.on': true, 'comp.sustain': 7, 'drive.on': true, 'drive.gain': 8, 'gate.thresh': -50 }, pedal: 'nam-x' });
+    out.legacy = n.board.map((b) => b.type + ':' + b.variant).join(' ') + ` | comp ${n.params['pb.c1.amount']} on ${n.params['pb.c1.on']} | drive ${n.params['pb.d1.gain']} | gate ${n.params['pb.g1.thresh']} | pedal ${n.pedals.n1}`;
+    // fresh board with every type and variant
+    for (const b of [...P.state.board]) P.removePedal(b.uid);
+    const uids = ['comp', 'drive', 'octave', 'envf', 'chorus', 'gate', 'nam'].map((t) => P.addPedal(t));
+    await new Promise((r) => setTimeout(r, 300));
+    out.board = (await dbg()).board.map((x) => x.split(':')[0]).join(' ');
+    out.di = (await dbg()).di;
+    P.movePedal(uids[1], 0, 0); // drive to the front
+    await new Promise((r) => setTimeout(r, 200));
+    out.reordered = (await dbg()).board.map((x) => x.split(':')[0]).join(' ');
+    out.diAfter = (await dbg()).di;
+    // every variant: output finite and not silent, with a bass-like test tone
+    const e = P.engine, ctx = e.ctx, sr = ctx.sampleRate;
+    e.srcNode?.disconnect(); window.__src?.disconnect();
+    const osc = ctx.createOscillator(); osc.frequency.value = 55; const og = ctx.createGain(); og.gain.value = 0.3; osc.connect(og); og.connect(e.inGain); osc.start();
+    const level = async () => { await new Promise((r) => setTimeout(r, 450)); const a = new Float32Array(2048); e.outAnalyser.getFloatTimeDomainData(a); let pk = 0, ok = true; for (const v of a) { if (!Number.isFinite(v)) ok = false; pk = Math.max(pk, Math.abs(v)); } return ok ? pk : NaN; };
+    out.levels = {};
+    const board = P.state.board;
+    for (const b of board) P.setParam(`pb.${b.uid}.on`, false);
+    const sel = (b, v) => { b.variant = v; e.setPedal(b.uid, { variant: v }); };
+    for (const b of board) {
+      if (b.type === 'nam') continue;
+      P.setParam(`pb.${b.uid}.on`, true);
+      const vars = { comp: ['opto', 'vca', 'fet', 'multi'], drive: ['tube', 'dist', 'fuzz', 'octfuzz'], envf: ['lp', 'bp', 'down'] }[b.type] || [''];
+      for (const v of vars) { if (v) sel(b, v); out.levels[b.type + (v ? ':' + v : '')] = +(await level()).toFixed(3); }
+      P.setParam(`pb.${b.uid}.on`, false);
+    }
+    osc.stop();
+    return out;
+  });
+  check(r.legacy.startsWith('gate: comp:vca drive:tube nam:') && r.legacy.includes('comp 7 on true') && r.legacy.includes('drive 8') && r.legacy.includes('gate -50') && r.legacy.includes('pedal nam-x'), 'v0.3 presets become a pedalboard', r.legacy);
+  check(r.board === 'comp drive octave envf chorus gate nam' && r.di === 1, 'pedals added in order; DI after leading comp', `${r.board} · DI ${r.di}`);
+  check(r.reordered.startsWith('drive comp') && r.diAfter === 0, 'reorder reaches the engine; DI follows', `${r.reordered} · DI ${r.diAfter}`);
+  const bad = Object.entries(r.levels).filter(([, v]) => !(v > 0.002 && v < 2));
+  check(Object.keys(r.levels).length === 14 && !bad.length, 'every pedal type and variant produces sane audio', JSON.stringify(r.levels));
+  // NAM pedal: load a capture through its own LOAD, category filter
+  const namUid = await page.evaluate(() => window.__profondo.state.board.find((b) => b.type === 'nam').uid);
+  const [fcN] = await Promise.all([page.waitForEvent('filechooser'), page.click(`[data-file="nam:${namUid}"]`)]);
+  await fcN.setFiles(path.join(models, 'lstm.nam')); await page.waitForTimeout(1500);
+  check((await page.textContent(`.pedal[data-uid="${namUid}"] .nam-name`)).length > 0 && (await page.evaluate((u) => !!window.__profondo.state.p[`pb.${u}.on`], namUid)), 'NAM pedal loads its own capture and switches on', await page.textContent(`.pedal[data-uid="${namUid}"] .nam-name`));
+  const second = await page.evaluate(() => window.__profondo.addPedal('nam'));
+  await page.waitForTimeout(300);
+  const [fcN2] = await Promise.all([page.waitForEvent('filechooser'), page.click(`[data-file="nam:${second}"]`)]);
+  await fcN2.setFiles(path.join(models, 'lstm.nam')); await page.waitForTimeout(1500);
+  const shared = await page.evaluate(() => new Promise((res) => { const e = window.__profondo.engine; const h = (m) => { if (m.data.type === 'debug') { e.front.port.removeEventListener('message', h); res(m.data.shared); } }; e.front.port.addEventListener('message', h); e.front.port.postMessage({ type: 'debug' }); }));
+  check(shared === false, 'two NAM pedals with the same capture keep separate state');
+  // save + recall keeps the board, variants and the NAM captures
+  const rt = await page.evaluate(async () => {
+    const P = window.__profondo, sig = () => JSON.stringify(P.state.board.map((b) => [b.type, b.variant, P.state.models['nam:' + b.uid]?.id || null, P.state.p[`pb.${b.uid}.on`]]));
+    const comp = P.state.board.find((b) => b.type === 'comp'); comp.variant = 'fet'; P.setParam(`pb.${comp.uid}.amount`, 8.5);
+    const before = sig(), cur = P.state.cur;
+    document.querySelector('#btnSave').click();
+    await P.recall(cur === 1 ? 2 : 1); const other = sig();
+    await P.recall(cur); await new Promise((r) => setTimeout(r, 1200));
+    return { before, after: sig(), other, amount: P.state.p[`pb.${P.state.board.find((b) => b.type === 'comp').uid}.amount`] };
+  });
+  check(rt.before === rt.after && rt.other !== rt.before && rt.amount === 8.5, 'preset save / recall restores board, types and NAM captures', rt.after);
+}
 
 // ---- 3b. multi-file and folder import, library browsing
 {

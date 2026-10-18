@@ -25,7 +25,7 @@ Best in **Chrome or Edge** (Web MIDI + output-device selection). Firefox works i
 
 ## Chain
 
-Gate → Compressor → Drive (blend) → **NAM pedal** → **NAM amp** → EQ (bass, low-mid, sweepable mid, treble, presence)
+**Pedalboard** in any order — compressor (opto / VCA / FET / multiband), drive (tube / bass distortion / fuzz / octave fuzz), octaver, envelope filter, bass chorus, gate and any number of **NAM pedals** — → **NAM amp** → EQ (bass, low-mid, sweepable mid, treble, presence)
 → **Cab IR** → **Clean blend + crossover** → **Stereo tape delay** (ping-pong, sync, tap, wow, low cut) → **Stereo convolution reverb** → master + safety limiter.
 
 Also: bass tuner (down to low B), loudness normalization from NAM metadata, presets with export/import (models embedded),

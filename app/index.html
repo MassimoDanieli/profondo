@@ -56,33 +56,8 @@
   <!-- ===== PRE FX ===== -->
   <section class="row prefx">
     <div class="side-label">PRE FX</div>
-    <div class="pedal gate" data-block="gate">
-      <h3>GATE</h3><small>noise gate</small>
-      <div class="knobs"><div class="knob" data-p="gate.thresh"></div><div class="knob" data-p="gate.release"></div></div>
-      <div class="foot"><i class="led" data-led="gate.on"></i><button class="fsw" data-t="gate.on"></button></div>
-    </div>
-    <div class="pedal comp" data-block="comp">
-      <h3>COMP</h3><small>bass compressor · GR <b id="grVal">0.0</b> dB</small>
-      <div class="knobs"><div class="knob" data-p="comp.sustain"></div><div class="knob" data-p="comp.attack"></div><div class="knob" data-p="comp.level"></div><div class="knob" data-p="comp.blend"></div></div>
-      <div class="grbar"><i id="grBar"></i></div>
-      <div class="foot"><i class="led" data-led="comp.on"></i><button class="fsw" data-t="comp.on"></button></div>
-    </div>
-    <div class="pedal drive" data-block="drive">
-      <h3>DRIVE</h3><small>blend overdrive · lows stay clean</small>
-      <div class="knobs"><div class="knob" data-p="drive.gain"></div><div class="knob" data-p="drive.tone"></div><div class="knob" data-p="drive.level"></div><div class="knob" data-p="drive.blend"></div></div>
-      <div class="foot"><i class="led" data-led="drive.on"></i><button class="fsw" data-t="drive.on"></button></div>
-    </div>
-    <div class="pedal nam drop" data-block="pedal" data-drop="pedal">
-      <h3>NAM PEDAL</h3>
-      <div class="pedal-lcd">
-        <div class="lcd-head"><span id="pedalName">— empty —</span>
-          <div class="lcd-btns"><button class="mini" data-a="a:pedal-prev" title="Previous model in this folder">◂</button><button class="mini" data-a="a:pedal-next" title="Next model in this folder">▸</button><button class="mini" data-menu="pedal">▾</button><button class="mini" data-file="pedal">LOAD</button></div></div>
-        <div class="lcd-info" id="pedalInfo">drop a .nam pedal capture</div>
-      </div>
-      <div class="knobs"><div class="knob" data-p="pedal.input"></div><div class="knob" data-p="pedal.level"></div></div>
-      <div class="foot"><i class="led" data-led="pedal.on"></i><button class="fsw" data-t="pedal.on"></button></div>
-    </div>
-    <div class="chain-hint">bass → gate → comp → drive → NAM pedal → NAM amp → EQ → cab ⇄ clean blend → delay → reverb</div>
+    <div class="board" id="board"></div>
+    <div class="chain-hint">bass → your pedals (drag ⠿ to reorder) → NAM amp → EQ → cab ⇄ clean blend → delay → reverb</div>
   </section>
 
   <!-- ===== AMP ===== -->

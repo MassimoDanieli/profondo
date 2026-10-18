@@ -4,18 +4,15 @@ import { CAB_PRESETS, ROOM_PRESETS } from './irs.js';
 import { Library, LS, hashBytes } from './store.js';
 import { Midi } from './midi.js';
 import { detectPitch, noteOf } from './tuner.js';
+import { PEDALS, PEDAL_ORDER, MAX_PEDALS, NAM_CATS, namCategory, newUid, variantsOf, paramsFor, pedalDefaults, LEGACY_BOARD, LEGACY_KEYS } from './pedals.js';
 
-const VERSION = 'v0.3.2';
+const VERSION = 'v0.4.0';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
 // ---------------- parameter registry ----------------
 // id: [label, min, max, default, unit, log]
 const P = {
-  'gate.thresh': ['THRESH', -90, -20, -65, 'dB'], 'gate.release': ['RELEASE', 20, 500, 120, 'ms', 1],
-  'comp.sustain': ['SUSTAIN', 0, 10, 4, ''], 'comp.attack': ['ATTACK', 1, 50, 10, 'ms', 1], 'comp.level': ['LEVEL', -12, 12, 0, 'dB'], 'comp.blend': ['BLEND', 0, 100, 100, '%'],
-  'drive.gain': ['GAIN', 0, 10, 4, ''], 'drive.tone': ['TONE', 0, 10, 5, ''], 'drive.level': ['LEVEL', -24, 12, 0, 'dB'], 'drive.blend': ['BLEND', 0, 100, 50, '%'],
-  'pedal.input': ['INPUT', -12, 12, 0, 'dB'], 'pedal.level': ['LEVEL', -24, 12, 0, 'dB'],
   'amp.input': ['GAIN', -24, 24, 0, 'dB'], 'amp.output': ['AMP OUT', -24, 12, 0, 'dB'],
   'eq.bass': ['BASS', -12, 12, 0, 'dB'], 'eq.lowmid': ['LOW MID', -12, 12, 0, 'dB'], 'eq.mid': ['MID', -12, 12, 0, 'dB'], 'eq.midfreq': ['MID FREQ', 200, 3000, 600, 'Hz', 1],
   'eq.treble': ['TREBLE', -12, 12, 0, 'dB'], 'eq.presence': ['PRESENCE', -12, 12, 0, 'dB'],
@@ -26,10 +23,13 @@ const P = {
   'rev.level': ['LEVEL', -40, 0, -20, 'dB'], 'rev.predelay': ['PRE-DELAY', 0, 150, 20, 'ms'], 'rev.hiroll': ['HIGH ROLL', 1000, 16000, 6000, 'Hz', 1], 'rev.locut': ['LOW CUT', 20, 800, 150, 'Hz', 1],
   'in.gain': ['INPUT', -24, 24, 0, 'dB'], 'bpm': ['BPM', 40, 240, 120, ''],
 };
-const BOOL = { 'gate.on': false, 'comp.on': false, 'drive.on': false, 'pedal.on': false, 'amp.on': true, 'eq.on': true, 'cab.on': true, 'delay.on': false, 'rev.on': false,
+const BOOL = { 'amp.on': true, 'eq.on': true, 'cab.on': true, 'delay.on': false, 'rev.on': false,
   'delay.pingpong': false, 'delay.sync': false, 'blend.phase': false, normalize: true, bypass: false };
 const ENUM = { 'delay.div': '1/4' };
-const BLOCKS = [['gate.on', 'GATE'], ['comp.on', 'COMP'], ['drive.on', 'DRIVE'], ['pedal.on', 'PEDAL'], ['amp.on', 'AMP'], ['eq.on', 'EQ'], ['cab.on', 'CAB'], ['delay.on', 'DELAY'], ['rev.on', 'REVERB']];
+const POST_BLOCKS = [['amp.on', 'AMP'], ['eq.on', 'EQ'], ['cab.on', 'CAB'], ['delay.on', 'DELAY'], ['rev.on', 'REVERB']];
+const SHORT = { gate: 'GATE', comp: 'COMP', drive: 'DRIVE', octave: 'OCT', envf: 'ENV', chorus: 'CHORUS', nam: 'NAM' };
+// chain buttons / keys 1–9: the board's pedals, then the fixed blocks
+const chainBlocks = () => [...state.board.map((b) => [`pb.${b.uid}.on`, SHORT[b.type] || b.type.toUpperCase()]), ...POST_BLOCKS];
 const NOT_IN_PRESET = new Set(['bypass', 'normalize', 'in.gain']);
 
 function defaults() {
@@ -38,6 +38,14 @@ function defaults() {
   Object.assign(d, BOOL, ENUM);
   return d;
 }
+// parameter definition for a static id or a pedal id 'pb.<uid>.<key>'
+function pdef(id) {
+  if (P[id]) return P[id];
+  if (!id.startsWith('pb.')) return null;
+  const [, uid, key] = id.split('.'); const b = state.board.find((x) => x.uid === uid);
+  return b ? PEDALS[b.type].params[key] || null : null;
+}
+const isBool = (id) => id in BOOL || /^pb\.[^.]+\.on$/.test(id);
 
 // ---------------- factory presets ----------------
 const FACTORY = [
@@ -45,6 +53,10 @@ const FACTORY = [
   { name: 'Warm Tube 8x10', params: { 'comp.on': true, 'amp.input': 4, 'eq.bass': 3, 'eq.mid': 2, 'eq.midfreq': 800, 'eq.treble': -2 } },
   { name: 'Growl Blend', params: { 'comp.on': true, 'drive.on': true, 'drive.gain': 7, 'drive.blend': 55, 'drive.tone': 6, 'eq.mid': 3, 'eq.midfreq': 1000, 'blend.amount': 60, 'blend.xover': 150 }, cab: 'syn-410' },
   { name: 'Dub Room', params: { 'eq.bass': 5, 'eq.treble': -6, 'eq.presence': -4, 'rev.on': true, 'rev.level': -16, 'delay.on': true, 'delay.sync': true, 'delay.div': '1/4.', 'delay.feedback': 45, 'delay.level': -16, 'delay.hiroll': 2000 }, cab: 'syn-115', room: 'rev-dub' },
+  { name: 'Funk Envelope', board: [{ type: 'comp', variant: 'opto', on: true, p: { amount: 5 } }, { type: 'envf', variant: 'lp', on: true, p: { sens: 6, range: 6, reso: 6, mix: 85 } }, { type: 'drive', variant: 'tube', on: false }], params: { 'amp.input': 2, 'eq.lowmid': -2, 'eq.treble': 2 }, cab: 'syn-410' },
+  { name: 'Sub Octave Dub', board: [{ type: 'comp', variant: 'opto', on: true, p: { amount: 4 } }, { type: 'octave', on: true, p: { sub1: 75, sub2: 20, dry: 70, tone: 3 } }], params: { 'eq.treble': -4, 'eq.presence': -3, 'rev.on': true, 'rev.level': -18 }, cab: 'syn-115', room: 'rev-dub' },
+  { name: 'Octave Fuzz Blend', board: [{ type: 'comp', variant: 'vca', on: true, p: { amount: 5 } }, { type: 'drive', variant: 'octfuzz', on: true, p: { gain: 7, tone: 6, blend: 45 } }], params: { 'blend.amount': 60, 'blend.xover': 150, 'eq.mid': 2, 'eq.midfreq': 900 }, cab: 'syn-410' },
+  { name: 'Fretless Chorus', board: [{ type: 'comp', variant: 'opto', on: true, p: { amount: 5 } }, { type: 'chorus', on: true, p: { rate: 0.6, depth: 5, mix: 50, xover: 150 } }], params: { 'rev.on': true, 'rev.level': -16, 'eq.presence': 2 }, room: 'rev-plate' },
   { name: 'Ping-Pong Ambient', params: { 'comp.on': true, 'comp.sustain': 6, 'delay.on': true, 'delay.pingpong': true, 'delay.feedback': 55, 'delay.level': -12, 'delay.time': 450, 'rev.on': true, 'rev.level': -12, 'eq.bass': -2 }, room: 'rev-hall' },
 ];
 
@@ -52,10 +64,12 @@ const FACTORY = [
 const state = {
   p: defaults(),
   models: { amp: null, pedal: null, cab: { id: 'syn-810', name: CAB_PRESETS['syn-810'].name, builtin: true }, room: { id: 'rev-studio', name: ROOM_PRESETS['rev-studio'].name, builtin: true } },
-  bank: LS.get('bank', null) || FACTORY.map((f) => ({ name: f.name, params: f.params, amp: null, pedal: null, cab: f.cab || 'syn-810', room: f.room || 'rev-studio' })),
+  bank: LS.get('bank', null) || FACTORY.map(factoryPreset),
+  board: [],
   cur: LS.get('cur', 0), dirty: false, learn: false, tunerOpen: false,
 };
 let engine = null, started = false;
+function factoryPreset(f) { const pr = { name: f.name, params: f.params, board: f.board, amp: null, cab: f.cab || 'syn-810', room: f.room || 'rev-studio' }; if (f.board) { const n = normalizePreset(pr); pr.board = n.board; pr.params = n.params; pr.pedals = {}; } return pr; }
 // v0.1 shipped "Clean DI" with the amp left on: fix stored copies that never set it
 for (const pr of state.bank) if (pr.name === 'Clean DI' && pr.params && !('amp.on' in pr.params)) pr.params['amp.on'] = false;
 const knobs = new Map();
@@ -68,21 +82,21 @@ const midi = new Midi({
 
 // ---------------- formatting ----------------
 function fmt(id, v) {
-  const u = P[id][4];
+  const u = pdef(id)[4];
   if (u === 'dB') return (v > 0 ? '+' : '') + v.toFixed(1) + ' dB';
   if (u === '%') return Math.round(v) + ' %';
   if (u === 'ms') return Math.round(v) + ' ms';
   if (u === 'msf') return v.toFixed(2) + ' ms';
-  if (u === 'Hz') return v >= 1000 ? (v / 1000).toFixed(1) + ' kHz' : Math.round(v) + ' Hz';
+  if (u === 'Hz') return v >= 1000 ? (v / 1000).toFixed(1) + ' kHz' : v < 10 ? v.toFixed(2) + ' Hz' : Math.round(v) + ' Hz';
   if (u === 'xo') return v < 30 ? 'OFF' : Math.round(v) + ' Hz';
   return v.toFixed(1);
 }
-const toNorm = (id, v) => { const [, mn, mx, , , lg] = P[id]; return lg ? Math.log(v / mn) / Math.log(mx / mn) : (v - mn) / (mx - mn); };
-const fromNorm = (id, t) => { const [, mn, mx, , , lg] = P[id]; t = Math.max(0, Math.min(1, t)); return lg ? mn * Math.pow(mx / mn, t) : mn + t * (mx - mn); };
+const toNorm = (id, v) => { const [, mn, mx, , , lg] = pdef(id); return lg ? Math.log(v / mn) / Math.log(mx / mn) : (v - mn) / (mx - mn); };
+const fromNorm = (id, t) => { const [, mn, mx, , , lg] = pdef(id); t = Math.max(0, Math.min(1, t)); return lg ? mn * Math.pow(mx / mn, t) : mn + t * (mx - mn); };
 
 // ---------------- knobs ----------------
 function buildKnob(el) {
-  const id = el.dataset.p; const def = P[id];
+  const id = el.dataset.p; const def = pdef(id);
   if (!def) return;
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', '-50 -50 100 100');
@@ -116,23 +130,25 @@ function buildKnob(el) {
   el.addEventListener('wheel', (e) => { e.preventDefault(); setParam(id, roundFor(id, fromNorm(id, toNorm(id, state.p[id]) - Math.sign(e.deltaY) * (e.shiftKey ? 0.005 : 0.02)))); }, { passive: false });
   el.addEventListener('dblclick', () => setParam(id, def[3]));
 }
-function roundFor(id, v) { const u = P[id][4]; if (u === 'dB') return Math.round(v * 10) / 10; if (u === '' ) return Math.round(v * 10) / 10; if (u === 'msf') return Math.round(v * 50) / 50; if (u === 'Hz' && v < 1000) return Math.round(v); if (u === 'Hz') return Math.round(v / 10) * 10; return Math.round(v); }
+function roundFor(id, v) { const u = pdef(id)[4]; if (u === 'Hz' && v < 10) return Math.round(v * 20) / 20; if (u === 'dB') return Math.round(v * 10) / 10; if (u === '' ) return Math.round(v * 10) / 10; if (u === 'msf') return Math.round(v * 50) / 50; if (u === 'Hz' && v < 1000) return Math.round(v); if (u === 'Hz') return Math.round(v / 10) * 10; return Math.round(v); }
 function renderKnob(id) { const k = knobs.get(id); if (!k) return; const v = state.p[id]; k.dial.setAttribute('transform', `rotate(${-135 + 270 * toNorm(id, v)})`); k.val.textContent = fmt(id, v); }
 
 // ---------------- generic param set / render ----------------
 function setParam(id, v, opts = {}) {
   if (state.p[id] === v) return;
   state.p[id] = v;
-  if (engine) engine.set(id, v);
+  if (id.startsWith('pb.')) { const [, uid, key] = id.split('.'); engine?.setPedal(uid, key === 'on' ? { on: !!v } : { p: { [key]: v } }); }
+  else if (engine) engine.set(id, v);
   render(id);
   if (!NOT_IN_PRESET.has(id) && !opts.noDirty) markDirty();
   saveSession();
 }
 function render(id) {
-  if (P[id]) renderKnob(id);
+  if (pdef(id)) renderKnob(id);
   const v = state.p[id];
   $$(`[data-led="${id}"]`).forEach((e) => e.classList.toggle('on', !!v));
-  const block = { 'gate.on': 'gate', 'comp.on': 'comp', 'drive.on': 'drive', 'pedal.on': 'pedal', 'amp.on': 'amp', 'delay.on': 'delay', 'rev.on': 'rev' }[id];
+  if (/^pb\.[^.]+\.on$/.test(id)) $$(`.pedal[data-uid="${id.split('.')[1]}"]`).forEach((e) => e.classList.toggle('off', !v));
+  const block = { 'amp.on': 'amp', 'delay.on': 'delay', 'rev.on': 'rev' }[id];
   if (block) $$(`[data-block="${block}"]`).forEach((e) => e.classList.toggle('off', !v));
   if (id === 'bypass') { $('#btnBypass .led').classList.toggle('on', !!v); }
   if (id === 'delay.sync') { $$('#delayMode button').forEach((b) => b.classList.toggle('on', (b.dataset.v === 'sync') === !!v)); updateDelayTimeKnob(); }
@@ -168,7 +184,7 @@ function doAction(a) {
     }
   }
   else if (a === 'a:align') autoAlign();
-  else if (/^a:(amp|pedal|cab|room)-(prev|next)$/.test(a)) { const [, sl, d] = a.match(/^a:(\w+)-(\w+)$/); stepModel(sl, d === 'next' ? 1 : -1); }
+  else if (/^a:(amp|cab|room|nam:[\w]+)-(prev|next)$/.test(a)) { const [, sl, d] = a.match(/^a:(amp|cab|room|nam:[\w]+)-(prev|next)$/); stepModel(sl, d === 'next' ? 1 : -1); }
   else if (a.startsWith('a:preset:')) { const n = +a.split(':')[2]; if (n < state.bank.length) recall(n); }
 }
 
@@ -189,16 +205,19 @@ async function autoAlign() {
 function onTarget(target, v01, raw, map) {
   if (target.startsWith('a:')) { if (raw.val > 0) doAction(target); return; }
   const id = target.slice(2);
-  if (id in BOOL) {
+  if (!(id in state.p)) return; // e.g. a pedal not on the current board
+  if (isBool(id)) {
     if (map.mode === 'latch') setParam(id, raw.val >= 64);
     else if (raw.val > 0) setParam(id, !state.p[id]);
-  } else if (P[id]) setParam(id, roundFor(id, fromNorm(id, v01)));
+  } else if (pdef(id)) setParam(id, roundFor(id, fromNorm(id, v01)));
 }
 function targetLabel(t) {
   if (t.startsWith('a:')) return { 'a:amp-prev': 'Amp model ◂', 'a:amp-next': 'Amp model ▸', 'a:pedal-prev': 'Pedal model ◂', 'a:pedal-next': 'Pedal model ▸', 'a:cab-prev': 'Cab IR ◂', 'a:cab-next': 'Cab IR ▸', 'a:room-prev': 'Room IR ◂', 'a:room-next': 'Room IR ▸', 'a:align': 'Auto-align', 'a:prev': 'Preset ◀', 'a:next': 'Preset ▶', 'a:tap': 'Tap tempo', 'a:bypass': 'Bypass', 'a:tuner': 'Tuner' }[t] || t;
+  if (/^a:nam:/.test(t)) return `NAM pedal model ${t.endsWith('next') ? '▸' : '◂'}`;
   const id = t.slice(2);
+  if (id.startsWith('pb.')) { const [, uid, key] = id.split('.'); const b = state.board.find((x) => x.uid === uid); if (!b) return 'pedal (not on this preset)'; const L = PEDALS[b.type].label; return key === 'on' ? `${L} on/off` : `${L} ${PEDALS[b.type].params[key]?.[0] || key}`; }
   if (P[id]) { const blk = id.split('.')[0].toUpperCase(); return `${blk} ${P[id][0]}`; }
-  const b = BLOCKS.find((x) => x[0] === id); return b ? `${b[1]} on/off` : id;
+  const b = POST_BLOCKS.find((x) => x[0] === id); return b ? `${b[1]} on/off` : id;
 }
 function markMapped() {
   const set = new Set(midi.maps.map((m) => m.target));
@@ -230,9 +249,10 @@ function namDescription(json, fileName) {
   const name = md.name || [md.gear_make, md.gear_model].filter(Boolean).join(' ') || fileName.replace(/\.nam$/i, '');
   let arch = json.architecture;
   if (arch === 'SlimmableContainer') arch = 'A2';
-  return { name, arch, rate: json.sample_rate || 48000, loud: md.loudness, by: md.modeled_by, type: md.gear_type };
+  return { name, arch, rate: json.sample_rate || 48000, loud: md.loudness, by: md.modeled_by, type: md.gear_type, tone: md.tone_type, make: md.gear_make, model: md.gear_model };
 }
 const NAM_RE = /\.nam$/i, IR_RE = /\.(wav|aiff?|flac)$/i;
+const isNamSlot = (slot) => slot === 'amp' || /^nam:/.test(slot || '');
 const folderOf = (p) => { const i = (p || '').lastIndexOf('/'); return i > 0 ? p.slice(0, i) : ''; };
 const natural = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 let persistAsked = false;
@@ -241,7 +261,7 @@ let persistAsked = false;
 // Every supported file is stored (.nam as models, .wav/.aif/.flac as IRs); the first one that fits the
 // target slot is activated. entries: [{ file, path }] where path is the folder-relative path when known.
 async function importFiles(entries, slot) {
-  const want = !slot || slot === 'amp' || slot === 'pedal' ? 'nam' : 'ir';
+  const want = !slot || isNamSlot(slot) ? 'nam' : 'ir';
   const list = entries.filter((e) => NAM_RE.test(e.file.name) || IR_RE.test(e.file.name))
     .sort((x, y) => natural.compare(x.path || x.file.name, y.path || y.file.name));
   if (!list.length) return toast(!slot ? 'No .nam / IR files found' : want === 'nam' ? 'No .nam files found' : 'No .wav / .aif / .flac files found');
@@ -295,8 +315,10 @@ async function droppedEntries(dt) {
 
 // Step through the library (same folder as the current model) — handy for auditioning a pack.
 async function stepModel(slot, dir) {
-  const kind = slot === 'amp' || slot === 'pedal' ? 'nam' : 'ir';
-  const lib = (await Library.list()).filter((x) => x.kind === kind);
+  const kind = isNamSlot(slot) ? 'nam' : 'ir';
+  let lib = (await Library.list()).filter((x) => x.kind === kind);
+  const cat = slot.startsWith('nam:') ? state.board.find((b) => 'nam:' + b.uid === slot)?.cat : null;
+  if (cat && cat !== 'any') { const f = lib.filter((x) => namCategory(x) === cat); if (f.length) lib = f; }
   if (!lib.length) return toast('Library is empty: load or drop some files first');
   const cur = state.models[slot]?.id, curItem = lib.find((x) => x.id === cur);
   const pool = (curItem ? lib.filter((x) => (x.folder || '') === (curItem.folder || '')) : lib).sort((x, y) => natural.compare(x.name, y.name));
@@ -323,7 +345,7 @@ async function useModel(slot, id, bytes, desc) {
     state.models[slot] = { id, name: desc.name, desc, info: res.info };
     const er = res.info?.expectedRate, cr = engine.ctx.sampleRate;
     if (er > 0 && Math.abs(er - cr) > 1) toast(`⚠ ${desc.name} was trained at ${er / 1000} kHz, the engine runs at ${cr / 1000} kHz: its tone will be slightly off. Audio settings → Engine rate.`);
-    if (slot === 'pedal' && !state.p['pedal.on']) setParam('pedal.on', true);
+    if (slot.startsWith('nam:') && !state.p[`pb.${slot.slice(4)}.on`]) setParam(`pb.${slot.slice(4)}.on`, true);
     markDirty(); renderModels(); saveSession();
   } catch (e) {
     toast('Model error: ' + e.message); state.models[slot] = null; renderModels();
@@ -342,7 +364,7 @@ async function useIR(slot, m, bytes) {
     state.models[slot] = m; markDirty(); renderModels(); saveSession();
   } catch (e) { toast('IR error: ' + e.message); }
 }
-function setLcdInfo(slot, s) { const el = $(slot === 'amp' ? '#ampInfo' : '#pedalInfo'); if (el) el.textContent = s; }
+function setLcdInfo(slot, s) { const el = slot === 'amp' ? $('#ampInfo') : $(`.pedal[data-uid="${slot.slice(4)}"] .nam-info`); if (el) el.textContent = s; }
 function modelInfoText(m) {
   const d = m.desc || {}, i = m.info || {};
   const parts = [];
@@ -356,11 +378,14 @@ function modelInfoText(m) {
   return parts.join(' · ');
 }
 function renderModels() {
-  const a = state.models.amp, p = state.models.pedal, c = state.models.cab, r = state.models.room;
+  const a = state.models.amp, c = state.models.cab, r = state.models.room;
   $('#ampName').textContent = a ? a.name : 'Built-in Tube (no model)';
-  $('#ampInfo').textContent = a ? modelInfoText(a) : 'drop a .nam amp capture here · tone3000.com';
-  $('#pedalName').textContent = p ? p.name : '— empty —';
-  $('#pedalInfo').textContent = p ? modelInfoText(p) : 'drop a .nam pedal capture';
+  $('#ampInfo').textContent = a ? modelInfoText(a) : 'drop .nam files or a folder here · tone3000.com';
+  for (const b of state.board) if (b.type === 'nam') {
+    const m = state.models['nam:' + b.uid], card = $(`.pedal[data-uid="${b.uid}"]`); if (!card) continue;
+    card.querySelector('.nam-name').textContent = m ? m.name : '— empty —';
+    card.querySelector('.nam-info').textContent = m ? modelInfoText(m) : 'drop .nam captures or a folder';
+  }
   $('#cabName').textContent = c ? c.name : 'none';
   $('#cabInfo').textContent = c ? (c.builtin ? 'built-in synthesized IR · drop a .wav here' : (c.info || 'IR file')) : '';
   $('#roomName').textContent = r ? r.name : 'none';
@@ -371,13 +396,18 @@ async function openMenu(slot, anchor) {
   const dd = $('#dropdown');
   const lib = await Library.list();
   const cur = state.models[slot]?.id;
-  const isNam = slot === 'amp' || slot === 'pedal';
-  const own = lib.filter((x) => x.kind === (isNam ? 'nam' : 'ir'));
+  const isNam = isNamSlot(slot);
+  let own = lib.filter((x) => x.kind === (isNam ? 'nam' : 'ir'));
+  const ped = slot.startsWith('nam:') ? state.board.find((b) => 'nam:' + b.uid === slot) : null;
+  const catF = ped && ped.cat && ped.cat !== 'any' && !openMenu.showAll ? ped.cat : null;
+  const total = own.length;
+  if (catF) own = own.filter((x) => namCategory(x) === catF);
   const head = [], tail = [];
   if (!isNam) { const builtins = slot === 'cab' ? CAB_PRESETS : ROOM_PRESETS; head.push({ sec: 'BUILT-IN' }); for (const [id, b] of Object.entries(builtins)) head.push({ label: b.name, cur: id === cur, fn: () => useIR(slot, { id, name: b.name, builtin: true }) }); }
   tail.push({ sec: 'ACTIONS' });
   tail.push({ label: isNam ? 'Load files… (multiple)' : 'Load IR files… (multiple)', fn: () => pickFile(slot) });
   tail.push({ label: 'Import a whole folder…', fn: () => pickFile(slot, true) });
+  if (ped && ped.cat && ped.cat !== 'any') tail.unshift({ label: catF ? `Show all ${total} captures (filter: ${NAM_CATS[ped.cat]})` : `Show only ${NAM_CATS[ped.cat]} captures`, fn: () => { openMenu.showAll = !openMenu.showAll; setTimeout(() => openMenu(slot, anchor), 0); } }, { sec: 'FILTER' });
   if (isNam) tail.push({ label: slot === 'amp' ? 'Use built-in tube (no model)' : 'Remove pedal model', fn: () => unloadModel(slot) });
   tail.push({ label: isNam ? 'Browse TONE3000 ↗' : 'Browse IRs on TONE3000 ↗', fn: () => window.open(isNam ? 'https://www.tone3000.com/search?gear=amp&sort=trending' : 'https://www.tone3000.com/search?gear=ir', '_blank', 'noopener') });
   tail.push({ label: 'Manage library…', fn: openLibrary });
@@ -404,7 +434,7 @@ async function openMenu(slot, anchor) {
     const groups = new Map();
     for (const x of match) { const f = x.folder || ''; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(x); }
     const names = [...groups.keys()].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : natural.compare(a, b)));
-    if (!own.length) body.appendChild(row({ sec: `LIBRARY — empty: load files or a folder` }));
+    if (!own.length) body.appendChild(row({ sec: catF ? `no ${NAM_CATS[catF]} captures — set categories in Manage library` : `LIBRARY — empty: load files or a folder` }));
     else if (!match.length) body.appendChild(row({ sec: 'no match' }));
     for (const f of names) {
       const items = groups.get(f).sort((x, y) => natural.compare(x.name, y.name));
@@ -433,35 +463,179 @@ function pickFile(slot, folder = false, done) {
   const fi = $('#fileInput');
   fi.multiple = true;
   fi.webkitdirectory = folder; // a whole folder (subfolders included)
-  fi.accept = folder ? '' : !slot ? '.nam,.wav,.aif,.aiff,.flac' : (slot === 'amp' || slot === 'pedal' ? '.nam' : '.wav,.aif,.aiff,.flac');
+  fi.accept = folder ? '' : !slot ? '.nam,.wav,.aif,.aiff,.flac' : (isNamSlot(slot) ? '.nam' : '.wav,.aif,.aiff,.flac');
   fi.onchange = async () => { const files = [...fi.files]; fi.value = ''; fi.webkitdirectory = false; if (files.length) await importFiles(files.map((file) => ({ file, path: file.webkitRelativePath || '' })), slot); done?.(); };
   fi.click();
+}
+
+
+// ---------------- pedalboard ----------------
+// state.board = [{ uid, type, variant, cat }]; values live in state.p as 'pb.<uid>.<key>' and 'pb.<uid>.on'
+function normalizePreset(pr) {
+  // returns { board, params, pedals } for any preset (v0.4 board presets, factory board presets, v0.3 legacy)
+  const params = {}, pedals = { ...(pr.pedals || {}) };
+  let board;
+  if (Array.isArray(pr.board) && pr.board.length && pr.board[0].uid) {
+    board = pr.board.map((b) => ({ ...b }));
+    Object.assign(params, pr.params || {});
+  } else if (Array.isArray(pr.board)) { // factory format: [{ type, variant, on, p }]
+    board = pr.board.map((b) => ({ uid: newUid(), type: b.type, variant: b.variant || PEDALS[b.type].defaultVariant || '', cat: b.cat || 'any' }));
+    pr.board.forEach((b, i) => { const u = board[i].uid; params[`pb.${u}.on`] = !!b.on; for (const [k, v] of Object.entries(b.p || {})) params[`pb.${u}.${k}`] = v; });
+    Object.assign(params, pr.params || {});
+  } else { // v0.3: fixed gate → comp → drive → NAM pedal
+    board = LEGACY_BOARD.map((b) => ({ ...b }));
+    for (const [k, v] of Object.entries(pr.params || {})) params[LEGACY_KEYS[k] || k] = v;
+    if (pr.pedal) pedals.n1 = pr.pedal;
+  }
+  for (const b of board) { // fill missing pedal values with defaults
+    if (b.variant === undefined) b.variant = PEDALS[b.type].defaultVariant || '';
+    if (!(`pb.${b.uid}.on` in params)) params[`pb.${b.uid}.on`] = false;
+    for (const [k, v] of Object.entries(pedalDefaults(b.type))) if (!(`pb.${b.uid}.${k}` in params)) params[`pb.${b.uid}.${k}`] = v;
+  }
+  return { board, params, pedals };
+}
+const engineBoard = () => state.board.map((b) => {
+  const p = {}; for (const k of Object.keys(PEDALS[b.type].params)) p[k] = state.p[`pb.${b.uid}.${k}`];
+  return { uid: b.uid, type: b.type, variant: b.variant, on: !!state.p[`pb.${b.uid}.on`], p };
+});
+function syncBoard() { engine?.setBoard(engineBoard()); renderBoard(); renderChain(); renderModels(); markMapped(); }
+
+function renderBoard() {
+  const el = $('#board'); if (!el) return;
+  for (const id of [...knobs.keys()]) if (id.startsWith('pb.')) knobs.delete(id);
+  el.innerHTML = '';
+  state.board.forEach((b, i) => {
+    const def = PEDALS[b.type], card = document.createElement('div');
+    card.className = `pedal ${def.color}${def.nam ? ' nam drop' : ''}`;
+    card.dataset.uid = b.uid; if (def.nam) card.dataset.drop = 'nam:' + b.uid;
+    const vars = variantsOf(b.type);
+    card.innerHTML = `<div class="ped-top"><button class="ped-btn" data-move="-1" title="Move left">‹</button><span class="ped-grip" draggable="true" title="Drag to reorder">⠿</span><button class="ped-btn" data-move="1" title="Move right">›</button><span class="ped-sp"></span><button class="ped-btn ped-x" title="Remove pedal">✕</button></div>
+      <h3>${def.label}</h3>
+      ${vars ? `<select class="ped-var" title="Pedal type">${Object.entries(vars).map(([k, v]) => `<option value="${k}"${k === b.variant ? ' selected' : ''}>${v}</option>`).join('')}</select>` : `<small>${def.sub || ''}</small>`}
+      ${def.nam ? `<div class="pedal-lcd"><div class="lcd-head"><span class="nam-name">— empty —</span><div class="lcd-btns"><button class="mini" data-a="a:nam:${b.uid}-prev" title="Previous model">◂</button><button class="mini" data-a="a:nam:${b.uid}-next" title="Next model">▸</button><button class="mini" data-menu="nam:${b.uid}">▾</button><button class="mini" data-file="nam:${b.uid}">LOAD</button></div></div><div class="lcd-info nam-info">drop .nam captures or a folder</div></div>
+        <select class="ped-cat" title="Which captures this pedal lists">${Object.entries(NAM_CATS).map(([k, v]) => `<option value="${k}"${k === (b.cat || 'any') ? ' selected' : ''}>${k === 'any' ? 'ALL CAPTURES' : v}</option>`).join('')}</select>` : ''}
+      <div class="knobs">${paramsFor(b.type, b.variant).map(([k]) => `<div class="knob" data-p="pb.${b.uid}.${k}"></div>`).join('')}</div>
+      ${def.gr ? `<div class="grbar" title="Gain reduction"><i></i></div>` : ''}
+      <div class="foot"><i class="led" data-led="pb.${b.uid}.on"></i><button class="fsw" data-t="pb.${b.uid}.on" title="On / off (key ${i + 1})"></button></div>`;
+    card.classList.toggle('off', !state.p[`pb.${b.uid}.on`]);
+    el.appendChild(card);
+    card.querySelectorAll('.knob').forEach(buildKnob);
+    card.querySelectorAll('.knob').forEach((k) => renderKnob(k.dataset.p));
+    render(`pb.${b.uid}.on`);
+    card.querySelector('.ped-var')?.addEventListener('change', (e) => { b.variant = e.target.value; engine?.setPedal(b.uid, { variant: b.variant }); markDirty(); saveSession(); renderBoard(); });
+    card.querySelector('.ped-cat')?.addEventListener('change', (e) => { b.cat = e.target.value; markDirty(); saveSession(); });
+    card.querySelector('.ped-x').onclick = () => removePedal(b.uid);
+    card.querySelectorAll('[data-move]').forEach((btn) => (btn.onclick = () => movePedal(b.uid, +btn.dataset.move)));
+    const grip = card.querySelector('.ped-grip');
+    grip.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-profondo-pedal', b.uid); e.dataTransfer.effectAllowed = 'move'; card.classList.add('dragging'); });
+    grip.addEventListener('dragend', () => card.classList.remove('dragging'));
+    if (def.nam) wireDrop(card);
+  });
+  if (state.board.length < MAX_PEDALS) {
+    const add = document.createElement('button'); add.className = 'pedal add'; add.id = 'addPedal'; add.title = 'Add a pedal';
+    add.innerHTML = '<span>＋</span><small>ADD PEDAL</small>'; add.onclick = () => openAddPedal(add); el.appendChild(add);
+  }
+  markMapped();
+}
+function addPedal(type, at = state.board.length) {
+  if (state.board.length >= MAX_PEDALS) return toast(`Up to ${MAX_PEDALS} pedals`);
+  const uid = newUid(), b = { uid, type, variant: PEDALS[type].defaultVariant || '', cat: 'any' };
+  state.board.splice(at, 0, b);
+  state.p[`pb.${uid}.on`] = true;
+  for (const [k, v] of Object.entries(pedalDefaults(type))) state.p[`pb.${uid}.${k}`] = v;
+  markDirty(); syncBoard(); saveSession();
+  if (type === 'nam') toast('NAM pedal added: load a capture with LOAD or ▾, or drop files on it');
+  return uid;
+}
+function removePedal(uid) {
+  const i = state.board.findIndex((b) => b.uid === uid); if (i < 0) return;
+  const [b] = state.board.splice(i, 1);
+  for (const k of Object.keys(state.p)) if (k.startsWith(`pb.${uid}.`)) delete state.p[k];
+  if (b.type === 'nam') { delete state.models['nam:' + uid]; engine?.unloadModel('nam:' + uid); }
+  markDirty(); syncBoard(); saveSession();
+}
+function movePedal(uid, d, to) {
+  const i = state.board.findIndex((b) => b.uid === uid); if (i < 0) return;
+  let j = to ?? i + d; j = Math.max(0, Math.min(state.board.length - 1, j)); if (j === i) return;
+  const [b] = state.board.splice(i, 1); state.board.splice(j, 0, b);
+  markDirty(); syncBoard(); saveSession();
+}
+function openAddPedal(anchor) {
+  const dd = $('#dropdown'); dd.innerHTML = ''; const body = document.createElement('div'); body.className = 'dd-body'; dd.appendChild(body);
+  const sec = document.createElement('div'); sec.className = 'sec'; sec.textContent = 'ADD A PEDAL'; body.appendChild(sec);
+  const desc = { comp: 'Opto · VCA · FET · Multiband', drive: 'Tube OD · Bass distortion · Fuzz · Octave fuzz', octave: 'sub −1 / −2 octaves', envf: 'auto-wah: low-pass / band-pass, up / down', chorus: 'bass chorus, lows stay dry', nam: 'any NAM pedal / preamp capture', gate: 'noise gate' };
+  for (const t of PEDAL_ORDER) {
+    const d = document.createElement('div'); d.innerHTML = '<span></span><small></small>'; d.firstChild.textContent = PEDALS[t].label; d.lastChild.textContent = desc[t] || '';
+    d.onclick = () => { closeMenu(); addPedal(t); }; body.appendChild(d);
+  }
+  const r = anchor.getBoundingClientRect(); dd.classList.remove('hidden');
+  dd.style.left = Math.max(8, Math.min(r.left, innerWidth - dd.offsetWidth - 8)) + 'px';
+  dd.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - dd.offsetHeight - 8)) + 'px';
+  setTimeout(() => document.addEventListener('pointerdown', menuOutside), 0);
+}
+function renderChain() {
+  const chain = $('#chain'); if (!chain) return; chain.innerHTML = '';
+  chainBlocks().forEach(([id, label], i) => { const b = document.createElement('button'); b.dataset.t = id; b.innerHTML = `<i class="led"></i>${label}${i < 9 ? ` <kbd>${i + 1}</kbd>` : ''}`; chain.appendChild(b); render(id); });
+}
+function wireDrop(el) {
+  el.addEventListener('dragover', (e) => { if (![...e.dataTransfer.types].includes('Files')) return; e.preventDefault(); e.stopPropagation(); el.classList.add('dragover'); });
+  el.addEventListener('dragleave', () => el.classList.remove('dragover'));
+  el.addEventListener('drop', async (e) => { if (![...e.dataTransfer.types].includes('Files')) return; e.preventDefault(); e.stopPropagation(); el.classList.remove('dragover'); const files = await droppedEntries(e.dataTransfer); if (files.length) importFiles(files, el.dataset.drop); });
+}
+function wireBoardReorder() {
+  const el = $('#board');
+  const targetIndex = (e) => { // insertion index among the pedal cards under the pointer
+    const cards = [...el.querySelectorAll('.pedal[data-uid]')];
+    let best = cards.length, dist = Infinity;
+    cards.forEach((c, i) => {
+      const r = c.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      const d = Math.hypot(e.clientX - cx, (e.clientY - cy) * 2);
+      if (d < dist) { dist = d; best = e.clientX < cx ? i : i + 1; }
+    });
+    return best;
+  };
+  el.addEventListener('dragover', (e) => { if (![...e.dataTransfer.types].includes('text/x-profondo-pedal')) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+  el.addEventListener('drop', (e) => {
+    const uid = e.dataTransfer.getData('text/x-profondo-pedal'); if (!uid) return;
+    e.preventDefault(); e.stopPropagation();
+    const from = state.board.findIndex((b) => b.uid === uid); let to = targetIndex(e);
+    if (to > from) to--;
+    movePedal(uid, 0, to);
+  });
 }
 
 // ---------------- presets ----------------
 function snapshot(name) {
   const params = {};
   for (const [k, v] of Object.entries(state.p)) if (!NOT_IN_PRESET.has(k)) params[k] = v;
-  const m = state.models;
-  return { name, params, amp: m.amp?.id || null, pedal: m.pedal?.id || null, cab: m.cab?.id || 'syn-810', room: m.room?.id || 'rev-studio',
-    names: { amp: m.amp?.name, pedal: m.pedal?.name, cab: m.cab?.name, room: m.room?.name } };
+  const m = state.models, pedals = {}, pedalNames = {};
+  for (const b of state.board) if (b.type === 'nam') { pedals[b.uid] = m['nam:' + b.uid]?.id || null; pedalNames[b.uid] = m['nam:' + b.uid]?.name; }
+  return { name, v: 2, params, board: state.board.map((b) => ({ ...b })), pedals, amp: m.amp?.id || null, cab: m.cab?.id || 'syn-810', room: m.room?.id || 'rev-studio',
+    names: { amp: m.amp?.name, cab: m.cab?.name, room: m.room?.name, pedals: pedalNames } };
 }
 async function recall(i) {
   const pr = state.bank[i]; if (!pr) return;
   state.cur = i; LS.set('cur', i);
   const keep = { bypass: state.p.bypass, normalize: state.p.normalize, 'in.gain': state.p['in.gain'] };
-  state.p = { ...defaults(), ...pr.params, ...keep };
+  const norm = normalizePreset(pr);
+  const oldNam = state.board.filter((b) => b.type === 'nam').map((b) => b.uid);
+  state.board = norm.board;
+  state.p = { ...defaults(), ...norm.params, ...keep };
+  for (const u of oldNam) if (!state.board.some((b) => b.uid === u)) { delete state.models['nam:' + u]; engine?.unloadModel('nam:' + u); }
   if (engine) engine.setMany(state.p);
-  renderAll();
-  await applyPresetModels(pr);
+  syncBoard(); renderAll();
+  await applyPresetModels(pr, norm);
   state.dirty = false; renderPresetName(); saveSession();
 }
-async function applyPresetModels(pr) {
-  for (const slot of ['amp', 'pedal']) {
-    const id = pr[slot];
+async function applyPresetModels(pr, norm = normalizePreset(pr)) {
+  const want = [['amp', pr.amp, pr.names?.amp]];
+  for (const b of norm.board) if (b.type === 'nam') want.push(['nam:' + b.uid, norm.pedals[b.uid], pr.names?.pedals?.[b.uid] || (b.uid === 'n1' ? pr.names?.pedal : null)]);
+  for (const [slot, id, nm] of want) {
     if (!id) { if (state.models[slot]) { state.models[slot] = null; engine?.unloadModel(slot); } continue; }
     if (state.models[slot]?.id === id) continue;
-    if (engine) await useModel(slot, id); else state.models[slot] = { id, name: pr.names?.[slot] || id };
+    const on = slot.startsWith('nam:') ? state.p[`pb.${slot.slice(4)}.on`] : null;
+    if (engine) await useModel(slot, id); else state.models[slot] = { id, name: nm || id };
+    if (on !== null && state.p[`pb.${slot.slice(4)}.on`] !== on) setParam(`pb.${slot.slice(4)}.on`, on, { noDirty: true }); // loading never changes the preset's on/off
   }
   for (const slot of ['cab', 'room']) {
     const id = pr[slot]; if (!id || state.models[slot]?.id === id) continue;
@@ -517,11 +691,11 @@ function openPresets() {
     });
   };
   render();
-  $('#pFactory', b).onclick = () => { FACTORY.forEach((f) => state.bank.push({ name: f.name, params: f.params, amp: null, pedal: null, cab: f.cab || 'syn-810', room: f.room || 'rev-studio' })); saveBank(); render(); };
+  $('#pFactory', b).onclick = () => { FACTORY.forEach((f) => state.bank.push(factoryPreset(f))); saveBank(); render(); };
   $('#pExport', b).onclick = async () => {
     const out = { app: 'profondo', version: 1, bank: state.bank, files: {} };
     if ($('#pWithModels', b).checked) {
-      const ids = new Set(state.bank.flatMap((p) => [p.amp, p.pedal, p.cab, p.room]).filter((x) => x && /^(nam|ir)-/.test(x)));
+      const ids = new Set(state.bank.flatMap((p) => [p.amp, p.pedal, p.cab, p.room, ...Object.values(p.pedals || {})]).filter((x) => x && /^(nam|ir)-/.test(x)));
       for (const id of ids) { const it = await Library.get(id); if (it) out.files[id] = { ...it, bytes: b64(it.bytes) }; }
     }
     const blob = new Blob([JSON.stringify(out)], { type: 'application/json' });
@@ -569,8 +743,9 @@ async function openLibrary() {
       t.appendChild(hr);
       for (const x of items) {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${x.kind === 'nam' ? 'NAM ' + (x.desc?.arch || '') : 'IR'}</td><td></td><td>${((x.size || 0) / 1024).toFixed(0)} KB</td><td style="text-align:right"><button class="btn">✕</button></td>`;
+        tr.innerHTML = `<td>${x.kind === 'nam' ? 'NAM ' + (x.desc?.arch || '') : 'IR'}</td><td></td><td>${((x.size || 0) / 1024).toFixed(0)} KB</td><td style="text-align:right;white-space:nowrap">${x.kind === 'nam' ? `<select class="lib-cat" title="Category used by NAM pedals">${Object.entries({ ...NAM_CATS, amp: 'AMP' }).filter(([k]) => k !== 'any').map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select> ` : ''}<button class="btn">✕</button></td>`;
         tr.children[1].textContent = x.name;
+        const cs = tr.querySelector('.lib-cat'); if (cs) { cs.value = namCategory(x); cs.onchange = () => Library.patch(x.id, { cat: cs.value }); }
         tr.querySelector('button').onclick = async () => { await Library.del(x.id); render(); };
         t.appendChild(tr);
       }
@@ -625,7 +800,7 @@ function openMidi() {
     <h3>MAPPINGS</h3><table id="midiMaps"></table>
     <p class="note"><b>Learn</b>: press LEARN, click any knob, footswitch, chain button, TAP, ◀ ▶, TUNER or BYPASS, then move/press the controller. Knobs follow CC values (expression pedals); switches toggle on each press ("press") or follow the value ("latch", ≥64 = on).</p>
     <h3>NO MIDI CONTROLLER? COMPUTER KEYBOARD</h3>
-    <p class="note"><kbd>1</kbd>–<kbd>9</kbd> blocks (gate, comp, drive, pedal, amp, EQ, cab, delay, reverb) · <kbd>←</kbd> <kbd>→</kbd> presets · <kbd>T</kbd> tap · <kbd>U</kbd> tuner · <kbd>B</kbd> bypass · <kbd>L</kbd> learn.<br>
+    <p class="note"><kbd>1</kbd>–<kbd>9</kbd> chain buttons (your pedals in order, then amp, EQ, cab, delay, reverb) · <kbd>←</kbd> <kbd>→</kbd> presets · <kbd>T</kbd> tap · <kbd>U</kbd> tuner · <kbd>B</kbd> bypass · <kbd>L</kbd> learn.<br>
     Phone as a controller: TouchOSC or similar over network MIDI (Mac: Audio MIDI Setup → Network). Cheap footswitches like the M-VAVE Chocolate work over USB or BLE-MIDI.</p>`);
   $('#mCh', b).value = String(midi.settings.channel || 0);
   $('#mPC', b).checked = midi.settings.pc; $('#mClock', b).checked = midi.settings.clock;
@@ -649,7 +824,7 @@ function renderMidiMaps() {
   t.innerHTML = '<tr><th>Source</th><th>Target</th><th>Mode</th><th></th></tr>';
   midi.maps.forEach((m, i) => {
     const tr = document.createElement('tr');
-    const isSwitch = m.target.startsWith('p:') && (m.target.slice(2) in BOOL);
+    const isSwitch = m.target.startsWith('p:') && isBool(m.target.slice(2));
     tr.innerHTML = `<td>${midi.describe(m)}</td><td></td><td>${isSwitch ? `<select><option value="press">press</option><option value="latch">latch</option></select>` : m.target.startsWith('a:') ? 'trigger' : 'continuous'}</td><td><button class="btn">✕</button></td>`;
     tr.children[1].textContent = targetLabel(m.target);
     const sel = tr.querySelector('select'); if (sel) { sel.value = m.mode || 'press'; sel.onchange = () => { m.mode = sel.value; midi.save(); }; }
@@ -666,7 +841,7 @@ function openHelp() {
   <p>A Neural Amp Modeler rig for bass that runs in the browser — macOS, Windows and Linux. The NAM engine is the official <b>NeuralAmpModelerCore</b> (A1 WaveNet, LSTM, A2 / slimmable) compiled to WebAssembly.</p>
   <p><a class="btn gold" href="guide.html?lang=${lang}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;padding:9px 14px">📖 GUIDA COMPLETA / FULL GUIDE ↗</a></p>
   <h3>SIGNAL CHAIN</h3>
-  <p>Gate → Compressor → Drive → NAM pedal → NAM amp → EQ → Cab IR → Clean blend (crossover, align, phase) → Tape delay → Reverb → Master + safety limiter.</p>
+  <p>Pedalboard (any order: comp, drive, octaver, envelope filter, chorus, gate, NAM pedals) → NAM amp → EQ → Cab IR → Clean blend (crossover, align, phase) → Tape delay → Reverb → Master + safety limiter.</p>
   <h3>KEYS</h3>
   <p><kbd>1</kbd>–<kbd>9</kbd> blocks · <kbd>←</kbd> <kbd>→</kbd> presets · <kbd>[</kbd> <kbd>]</kbd> amp models · <kbd>,</kbd> <kbd>.</kbd> cab IRs · <kbd>T</kbd> tap · <kbd>U</kbd> tuner · <kbd>B</kbd> bypass · <kbd>L</kbd> MIDI learn · <kbd>Esc</kbd> close</p>
   <p class="note">Code and issues: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener" style="color:var(--gold)">github.com/MassimoDanieli/profondo</a></p>`);
@@ -706,8 +881,7 @@ const toPct = (lin) => Math.max(0, Math.min(100, (20 * Math.log10(lin + 1e-9) + 
 function startMeters() {
   engine.on('meter', (m) => {
     $('#mIn').style.width = toPct(m.inPk) + '%';
-    $('#grVal').textContent = state.p['comp.on'] ? m.gr.toFixed(1) : '0.0';
-    $('#grBar').style.width = state.p['comp.on'] ? Math.min(100, m.gr * 5) + '%' : '0';
+    for (const [uid, gr] of Object.entries(m.gr || {})) { const bar = $(`.pedal[data-uid="${uid}"] .grbar i`); if (bar) bar.style.width = Math.min(100, gr * 5) + '%'; }
     $('#cpu').textContent = `DSP ${Math.round(m.cpu * 100)}%`;
     $('#cpu').style.color = m.cpu > 0.7 ? '#ff6a5a' : '';
   });
@@ -723,9 +897,9 @@ function toast(s) { const t = $('#toast'); t.textContent = s; t.classList.add('s
 // ---------------- start ----------------
 async function preloadBankModels() {
   // each slot gets its own instance (pedal and amp never share model state)
-  const want = new Set(state.bank.flatMap((p) => [p.amp && 'amp|' + p.amp, p.pedal && 'pedal|' + p.pedal]).filter(Boolean));
+  const want = new Set(state.bank.flatMap((p) => { const n = normalizePreset(p); return [p.amp && 'amp|' + p.amp, ...n.board.filter((b) => b.type === 'nam' && n.pedals[b.uid]).map((b) => `nam:${b.uid}|${n.pedals[b.uid]}`)]; }).filter(Boolean));
   for (const k of want) {
-    const [slot, id] = k.split('|');
+    const i = k.lastIndexOf('|'), slot = k.slice(0, i), id = k.slice(i + 1);
     if (state.models[slot]?.id === id) continue;
     const it = await Library.get(id); if (!it) continue;
     try { await engine.loadModel(slot, id, it.bytes, false); } catch {}
@@ -738,7 +912,7 @@ async function start() {
   $('#btnStart').disabled = true; msg.textContent = 'Starting engine…';
   try {
     engine = await new Engine().init('nam.wasm', LS.get('audio', {}).rate || 48000);
-    engine.setMany(state.p);
+    engine.setMany(state.p); engine.setBoard(engineBoard());
     await useIR('cab', state.models.cab); await useIR('room', state.models.room);
     const cfg = LS.get('audio', {});
     try { await engine.startInput(cfg.input, cfg.channel || 0); }
@@ -750,7 +924,8 @@ async function start() {
     startMeters();
     // restore models of the session
     const sess = LS.get('session', null);
-    for (const slot of ['amp', 'pedal']) { const id = sess ? sess[slot] : state.bank[state.cur]?.[slot]; if (id) await useModel(slot, id); }
+    const src = sess || state.bank[state.cur];
+    if (src) await applyPresetModels(src, { board: state.board, pedals: normalizePreset(src).pedals, params: {} });
     state.dirty = sess ? !!sess.dirty : false; renderPresetName();
     preloadBankModels();
     if (LS.get('midi.auto', false)) midi.enable().then(() => $('#midiLed').classList.add('on', 'blue')).catch(() => {});
@@ -765,23 +940,28 @@ function init() {
   $('#ver').textContent = VERSION;
   // restore session (params + IR choices)
   const sess = LS.get('session', null);
+  // v0.3 MIDI mappings pointed at the fixed pedals: move them to the legacy board ids
+  if (midi.maps.some((m) => LEGACY_KEYS[m.target.slice(2)] || m.target.startsWith('a:pedal-'))) {
+    midi.maps = midi.maps.map((m) => ({ ...m, target: LEGACY_KEYS[m.target.slice(2)] ? 'p:' + LEGACY_KEYS[m.target.slice(2)] : m.target.replace(/^a:pedal-/, 'a:nam:n1-') })); midi.save();
+  }
   if (sess) {
-    state.p = { ...defaults(), ...sess.params, ...(sess.globals || {}) };
+    const n = normalizePreset(sess); state.board = n.board;
+    state.p = { ...defaults(), ...n.params, ...(sess.globals || {}) };
     const cb = CAB_PRESETS[sess.cab], rb = ROOM_PRESETS[sess.room];
     if (sess.cab) state.models.cab = cb ? { id: sess.cab, name: cb.name, builtin: true } : { id: sess.cab, name: sess.names?.cab || 'IR', builtin: false };
     if (sess.room) state.models.room = rb ? { id: sess.room, name: rb.name, builtin: true } : { id: sess.room, name: sess.names?.room || 'IR', builtin: false };
-    for (const s of ['amp', 'pedal']) if (sess[s]) state.models[s] = { id: sess[s], name: sess.names?.[s] || sess[s] };
+    if (sess.amp) state.models.amp = { id: sess.amp, name: sess.names?.amp || sess.amp };
+    for (const b of state.board) if (b.type === 'nam' && n.pedals[b.uid]) state.models['nam:' + b.uid] = { id: n.pedals[b.uid], name: sess.names?.pedals?.[b.uid] || sess.names?.pedal || n.pedals[b.uid] };
   } else if (state.bank[state.cur]) {
-    const pr = state.bank[state.cur]; state.p = { ...defaults(), ...pr.params };
+    const pr = state.bank[state.cur]; const n = normalizePreset(pr); state.board = n.board; state.p = { ...defaults(), ...n.params };
     if (pr.cab && CAB_PRESETS[pr.cab]) state.models.cab = { id: pr.cab, name: CAB_PRESETS[pr.cab].name, builtin: true };
     if (pr.room && ROOM_PRESETS[pr.room]) state.models.room = { id: pr.room, name: ROOM_PRESETS[pr.room].name, builtin: true };
   }
   if (state.cur >= state.bank.length) state.cur = 0;
+  if (!state.board.length && !sess) { const n = normalizePreset({ params: {} }); state.board = n.board; Object.assign(state.p, n.params); }
 
   $$('.knob').forEach(buildKnob);
-  // chain buttons
-  const chain = $('#chain');
-  BLOCKS.forEach(([id, label], i) => { const b = document.createElement('button'); b.dataset.t = id; b.innerHTML = `<i class="led"></i>${label} <kbd>${i + 1}</kbd>`; chain.appendChild(b); });
+  renderBoard(); renderChain(); wireBoardReorder();
   // delay subdivisions
   const dd = $('#delayDiv'); DIV_NAMES.forEach((n) => { const o = document.createElement('option'); o.value = n; o.textContent = n; dd.appendChild(o); });
   dd.onchange = () => setParam('delay.div', dd.value);
@@ -806,18 +986,14 @@ function init() {
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-t]'); if (t && !state.learn) { const id = t.dataset.t; setParam(id, !state.p[id]); return; }
     const a = e.target.closest('[data-a]'); if (a && !state.learn) { doAction(a.dataset.a); return; }
-    const m = e.target.closest('[data-menu]'); if (m) { openMenu(m.dataset.menu, m); return; }
+    const m = e.target.closest('[data-menu]'); if (m) { openMenu.showAll = false; openMenu(m.dataset.menu, m); return; }
     const f = e.target.closest('[data-file]'); if (f) { pickFile(f.dataset.file); return; }
   });
 
   // drag & drop
-  $$('.drop').forEach((el) => {
-    el.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('dragover'); });
-    el.addEventListener('dragleave', () => el.classList.remove('dragover'));
-    el.addEventListener('drop', async (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('dragover'); const files = await droppedEntries(e.dataTransfer); if (files.length) importFiles(files, el.dataset.drop); });
-  });
+  $$('.drop').forEach(wireDrop);
   document.addEventListener('dragover', (e) => e.preventDefault());
-  document.addEventListener('drop', async (e) => { e.preventDefault(); const files = await droppedEntries(e.dataTransfer); if (files.length) importFiles(files, files.some((x) => NAM_RE.test(x.file.name)) ? 'amp' : 'cab'); });
+  document.addEventListener('drop', async (e) => { e.preventDefault(); if (![...e.dataTransfer.types].includes('Files')) return; const files = await droppedEntries(e.dataTransfer); if (files.length) importFiles(files, files.some((x) => NAM_RE.test(x.file.name)) ? 'amp' : 'cab'); });
 
   $('#btnStart').onclick = start;
   $('#btnSave').onclick = savePreset; $('#btnSaveAs').onclick = savePresetAs; $('#btnPresets').onclick = openPresets;
@@ -829,7 +1005,7 @@ function init() {
   document.addEventListener('keydown', (e) => {
     if (e.target.matches('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if (k >= '1' && k <= '9') { const id = BLOCKS[+k - 1][0]; setParam(id, !state.p[id]); }
+    if (k >= '1' && k <= '9') { const blk = chainBlocks()[+k - 1]; if (blk) setParam(blk[0], !state.p[blk[0]]); }
     else if (k === 'arrowleft') doAction('a:prev'); else if (k === 'arrowright') doAction('a:next');
     else if (k === 't') doAction('a:tap'); else if (k === 'u') doAction('a:tuner'); else if (k === 'b') doAction('a:bypass');
     else if (k === 'l') toggleLearn();
@@ -843,6 +1019,6 @@ function init() {
   renderAll(); markMapped();
   if (sess) { state.dirty = !!sess.dirty; renderPresetName(); }
   if (midi.maps.length && midi.supported) LS.set('midi.auto', true);
-  window.__profondo = { state, get engine() { return engine; }, setParam, recall, addFile, importFiles, midi, Library };
+  window.__profondo = { state, get engine() { return engine; }, setParam, recall, addFile, importFiles, midi, Library, addPedal, removePedal, movePedal, normalizePreset };
 }
 init();

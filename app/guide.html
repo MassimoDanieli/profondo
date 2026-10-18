@@ -180,15 +180,31 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
 
 <h2 id="it-rig">Il rig, blocco per blocco</h2>
 <div class="chain">
-  <span>basso</span><i>→</i><span>GATE</span><i>→</i><span>COMP</span><i>→</i><span>DRIVE</span><i>→</i><span>NAM PEDAL</span><i>→</i><span>NAM AMP</span><i>→</i><span>EQ</span><i>→</i><span>CAB</span><i>⇄</i><span>CLEAN BLEND</span><i>→</i><span>DELAY</span><i>→</i><span>REVERB</span><i>→</i><span>MASTER + limiter</span>
+  <span>basso</span><i>→</i><span>PEDALIERA (ordine libero)</span><i>→</i><span>NAM AMP</span><i>→</i><span>EQ</span><i>→</i><span>CAB</span><i>⇄</i><span>CLEAN BLEND</span><i>→</i><span>DELAY</span><i>→</i><span>REVERB</span><i>→</i><span>MASTER + limiter</span>
 </div>
+<h3>La pedaliera</h3>
+<ul>
+  <li><b>＋ ADD PEDAL</b> aggiunge un pedale (fino a 8). <b>✕</b> lo toglie.</li>
+  <li><b>Riordina</b> trascinando la maniglia <b>⠿</b> in alto, oppure con <b>‹ ›</b>.</li>
+  <li>Il menu sotto il nome sceglie il <b>tipo</b>: ogni pedale ha più "voci".</li>
+  <li>Puoi mettere <b>più pedali NAM</b>, ognuno con la sua cattura e una <b>categoria</b> (COMP, DRIVE, FUZZ, PREAMP/DI…) che filtra il suo menu: il pedale "drive" mostra solo catture drive. La categoria viene indovinata dal nome e dai dati del file; correggila in <i>Manage library</i>.</li>
+  <li>Il <b>DI pulito</b> per il blend viene preso dopo i primi pedali di gate e compressore: metti il compressore all'inizio se vuoi il pulito compresso.</li>
+  <li>Pedaliera, tipi e catture fanno parte del preset.</li>
+</ul>
+<div class="scroll"><table>
+  <tr><th>Pedale</th><th>Tipi e consigli</th></tr>
+  <tr><td>COMP</td><td><b>OPTO</b> morbido e musicale, rilascio che si adatta (ottimo per dita e fretless) · <b>VCA</b> preciso e veloce, per slap e pick · <b>FET</b> aggressivo, attacco rapidissimo e un po' di grana · <b>MULTIBAND</b> comprime basse e alte separatamente, con X-OVER: basse ferme senza spegnere l'attacco. <b>SUSTAIN</b> quanto comprime, <b>ATTACK</b>, <b>RELEASE</b>, <b>LEVEL</b>, <b>BLEND</b> (compressione parallela). La barra gialla mostra la riduzione.</td></tr>
+  <tr><td>DRIVE</td><td><b>TUBE OD</b> saturazione valvolare calda · <b>BASS DISTORTION</b> distorsione moderna "da basso", con un po' di presenza in alto · <b>FUZZ</b> squadrato, sfrigola sulle code · <b>OCTAVE FUZZ</b> fuzz con l'ottava sopra. <b>BLEND</b> rimette il pulito: le basse restano piene.</td></tr>
+  <tr><td>OCTAVER</td><td>Ottava sotto analogica (monofonica): <b>SUB −1</b> un'ottava sotto, <b>SUB −2</b> due ottave, <b>DRY</b> il pulito, <b>TONE</b> quanto è scuro il sub. Suona meglio sulle note singole e sui registri medi.</td></tr>
+  <tr><td>ENV FILTER</td><td>Auto-wah che segue la dinamica: <b>LOW-PASS · up</b> il classico funk, <b>BAND-PASS · up</b> più nasale, <b>LOW-PASS · down</b> si chiude quando suoni forte. <b>SENS</b> quanto reagisce, <b>RANGE</b> fin dove apre, <b>RESO</b> il picco, <b>MIX</b>.</td></tr>
+  <tr><td>CHORUS</td><td>Chorus per basso: sotto <b>X-OVER</b> le basse restano asciutte e ferme. <b>RATE</b>, <b>DEPTH</b>, <b>MIX</b>.</td></tr>
+  <tr><td>GATE</td><td>Noise gate: <b>THRESH</b>, <b>RELEASE</b>. Di solito all'inizio o subito prima di un fuzz.</td></tr>
+  <tr><td>NAM PEDAL</td><td>Qualsiasi cattura NAM di pedale o preamp. <b>INPUT</b> quanto lo spingi, <b>LEVEL</b>, <b>◂ ▸</b> scorre le catture della stessa cartella.</td></tr>
+</table></div>
+
 <p>Ogni blocco si accende con il suo interruttore (il pulsante tondo sui pedali, ON sugli effetti) o con i pulsanti dorati in basso. Le manopole: <b>trascina in su/giù</b>, rotella del mouse, <kbd>Shift</kbd> per la regolazione fine, <b>doppio clic</b> per tornare al valore di partenza.</p>
 <div class="scroll"><table>
   <tr><th>Blocco</th><th>Controlli e consigli</th></tr>
-  <tr><td>GATE</td><td><b>THRESH</b> soglia sotto cui il suono si chiude, <b>RELEASE</b> quanto velocemente. Utile con ampli molto saturi; abbassa la soglia finché il fruscio sparisce senza tagliare le code delle note.</td></tr>
-  <tr><td>COMP</td><td><b>SUSTAIN</b> quanto comprime (soglia e rapporto insieme), <b>ATTACK</b> lento = lascia passare l'attacco della nota, <b>LEVEL</b>, <b>BLEND</b> per la compressione parallela. GR mostra di quanto sta comprimendo.</td></tr>
-  <tr><td>DRIVE</td><td>Overdrive pensato per il basso: <b>GAIN</b>, <b>TONE</b>, <b>LEVEL</b> e <b>BLEND</b> col segnale pulito, così le basse restano piene.</td></tr>
-  <tr><td>NAM PEDAL</td><td>Una cattura di pedale (overdrive, fuzz, preamp). <b>INPUT</b> quanto lo "spingi", <b>LEVEL</b> il volume in uscita.</td></tr>
   <tr><td>NAM AMP</td><td>La cattura principale. <b>GAIN</b> (sezione INPUT) quanto spingi l'ampli: sulle catture è il controllo più importante. <b>AMP OUT</b> il livello dopo il modello.</td></tr>
   <tr><td>EQ</td><td><b>BASS</b> 80 Hz, <b>LOW MID</b> 250 Hz, <b>MID</b> con <b>MID FREQ</b> regolabile (200 Hz – 3 kHz), <b>TREBLE</b> 2,5 kHz, <b>PRESENCE</b> 5,5 kHz.</td></tr>
   <tr><td>CAB</td><td>La IR della cassa e il suo <b>LEVEL</b>. Spegnila se la cattura include già la cassa ("full rig") o se vai in un impianto che ne ha una.</td></tr>
@@ -248,7 +264,7 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
 <h2 id="it-keys">Tastiera</h2>
 <div class="scroll"><table>
   <tr><th>Tasto</th><th>Azione</th></tr>
-  <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Accende/spegne gate, comp, drive, pedale, ampli, EQ, cassa, delay, riverbero</td></tr>
+  <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Accende/spegne i pulsanti della catena in basso: prima i tuoi pedali in ordine, poi ampli, EQ, cassa, delay, riverbero</td></tr>
   <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Preset precedente / successivo</td></tr>
   <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Modello ampli precedente / successivo (stessa cartella)</td></tr>
   <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>IR cassa precedente / successiva (stessa cartella)</td></tr>
@@ -291,7 +307,7 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
   <li>Le catture che scarichi appartengono ai loro autori: rispetta le loro licenze.</li>
   <li>Codice, segnalazioni e idee: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener">github.com/MassimoDanieli/profondo</a>.</li>
 </ul>
-<footer>Profondo · MIT License · Massimo Danieli</footer>
+<footer>Profondo v0.4 · MIT License · Massimo Danieli</footer>
 </main>
 </div>
 
@@ -383,15 +399,31 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
 
 <h2 id="en-rig">The rig, block by block</h2>
 <div class="chain">
-  <span>bass</span><i>→</i><span>GATE</span><i>→</i><span>COMP</span><i>→</i><span>DRIVE</span><i>→</i><span>NAM PEDAL</span><i>→</i><span>NAM AMP</span><i>→</i><span>EQ</span><i>→</i><span>CAB</span><i>⇄</i><span>CLEAN BLEND</span><i>→</i><span>DELAY</span><i>→</i><span>REVERB</span><i>→</i><span>MASTER + limiter</span>
+  <span>bass</span><i>→</i><span>PEDALBOARD (any order)</span><i>→</i><span>NAM AMP</span><i>→</i><span>EQ</span><i>→</i><span>CAB</span><i>⇄</i><span>CLEAN BLEND</span><i>→</i><span>DELAY</span><i>→</i><span>REVERB</span><i>→</i><span>MASTER + limiter</span>
 </div>
+<h3>The pedalboard</h3>
+<ul>
+  <li><b>＋ ADD PEDAL</b> adds a pedal (up to 8). <b>✕</b> removes it.</li>
+  <li><b>Reorder</b> by dragging the <b>⠿</b> handle at the top, or with <b>‹ ›</b>.</li>
+  <li>The menu under the name picks the <b>type</b>: each pedal has several voices.</li>
+  <li>You can have <b>several NAM pedals</b>, each with its own capture and a <b>category</b> (COMP, DRIVE, FUZZ, PREAMP/DI…) that filters its menu: a "drive" pedal lists only drive captures. The category is guessed from the file name and metadata; fix it in <i>Manage library</i>.</li>
+  <li>The <b>clean DI</b> for the blend is taken after the leading gate and compressor pedals: put the compressor first if you want a compressed clean.</li>
+  <li>The board, types and captures are part of the preset.</li>
+</ul>
+<div class="scroll"><table>
+  <tr><th>Pedal</th><th>Types and tips</th></tr>
+  <tr><td>COMP</td><td><b>OPTO</b> smooth and musical, program-dependent release (great for fingers and fretless) · <b>VCA</b> precise and fast, for slap and pick · <b>FET</b> aggressive, very fast attack and some grit · <b>MULTIBAND</b> compresses lows and highs separately, with X-OVER: steady lows without killing the attack. <b>SUSTAIN</b> amount, <b>ATTACK</b>, <b>RELEASE</b>, <b>LEVEL</b>, <b>BLEND</b> (parallel compression). The yellow bar shows gain reduction.</td></tr>
+  <tr><td>DRIVE</td><td><b>TUBE OD</b> warm tube saturation · <b>BASS DISTORTION</b> modern bass distortion with a little top-end bite · <b>FUZZ</b> square and sputtery on decays · <b>OCTAVE FUZZ</b> fuzz with the octave up. <b>BLEND</b> brings the clean back so the lows stay full.</td></tr>
+  <tr><td>OCTAVER</td><td>Analog-style (monophonic) sub octaves: <b>SUB −1</b> one octave down, <b>SUB −2</b> two, <b>DRY</b> the clean, <b>TONE</b> how dark the sub is. Best on single notes and in the middle register.</td></tr>
+  <tr><td>ENV FILTER</td><td>Auto-wah that follows your dynamics: <b>LOW-PASS · up</b> classic funk, <b>BAND-PASS · up</b> more vocal, <b>LOW-PASS · down</b> closes when you dig in. <b>SENS</b> response, <b>RANGE</b> how far it opens, <b>RESO</b> the peak, <b>MIX</b>.</td></tr>
+  <tr><td>CHORUS</td><td>Bass chorus: below <b>X-OVER</b> the lows stay dry and solid. <b>RATE</b>, <b>DEPTH</b>, <b>MIX</b>.</td></tr>
+  <tr><td>GATE</td><td>Noise gate: <b>THRESH</b>, <b>RELEASE</b>. Usually first, or right before a fuzz.</td></tr>
+  <tr><td>NAM PEDAL</td><td>Any NAM pedal or preamp capture. <b>INPUT</b> how hard you hit it, <b>LEVEL</b>, <b>◂ ▸</b> steps through captures in the same folder.</td></tr>
+</table></div>
+
 <p>Each block has its switch (the round footswitch on pedals, ON on effects) or the gold buttons at the bottom. Knobs: <b>drag up/down</b>, mouse wheel, <kbd>Shift</kbd> for fine moves, <b>double-click</b> to reset.</p>
 <div class="scroll"><table>
   <tr><th>Block</th><th>Controls and tips</th></tr>
-  <tr><td>GATE</td><td><b>THRESH</b> level below which it closes, <b>RELEASE</b> how fast. Useful with high-gain amps; lower the threshold until the hiss goes without cutting note tails.</td></tr>
-  <tr><td>COMP</td><td><b>SUSTAIN</b> amount (threshold and ratio together), slow <b>ATTACK</b> lets the pick attack through, <b>LEVEL</b>, <b>BLEND</b> for parallel compression. GR shows the gain reduction.</td></tr>
-  <tr><td>DRIVE</td><td>Bass-voiced overdrive: <b>GAIN</b>, <b>TONE</b>, <b>LEVEL</b> and <b>BLEND</b> with the clean signal so the lows stay full.</td></tr>
-  <tr><td>NAM PEDAL</td><td>A pedal capture (overdrive, fuzz, preamp). <b>INPUT</b> how hard you hit it, <b>LEVEL</b> its output.</td></tr>
   <tr><td>NAM AMP</td><td>The main capture. <b>GAIN</b> (INPUT section) drives the amp: with captures it is the most important control. <b>AMP OUT</b> is the level after the model.</td></tr>
   <tr><td>EQ</td><td><b>BASS</b> 80 Hz, <b>LOW MID</b> 250 Hz, <b>MID</b> with sweepable <b>MID FREQ</b> (200 Hz – 3 kHz), <b>TREBLE</b> 2.5 kHz, <b>PRESENCE</b> 5.5 kHz.</td></tr>
   <tr><td>CAB</td><td>The cabinet IR and its <b>LEVEL</b>. Turn it off if the capture already includes the cab ("full rig") or the PA has one.</td></tr>
@@ -451,7 +483,7 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
 <h2 id="en-keys">Keyboard</h2>
 <div class="scroll"><table>
   <tr><th>Key</th><th>Action</th></tr>
-  <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Toggle gate, comp, drive, pedal, amp, EQ, cab, delay, reverb</td></tr>
+  <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Toggle the chain buttons at the bottom: your pedals in order, then amp, EQ, cab, delay, reverb</td></tr>
   <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next preset</td></tr>
   <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next amp model (same folder)</td></tr>
   <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Previous / next cab IR (same folder)</td></tr>
@@ -494,7 +526,7 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
   <li>The captures you download belong to their authors: respect their licenses.</li>
   <li>Code, issues and ideas: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener">github.com/MassimoDanieli/profondo</a>.</li>
 </ul>
-<footer>Profondo · MIT License · Massimo Danieli</footer>
+<footer>Profondo v0.4 · MIT License · Massimo Danieli</footer>
 </main>
 </div>
 

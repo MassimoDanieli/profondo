@@ -54,6 +54,21 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .pedal.comp { background: linear-gradient(160deg, #2a5f90, var(--comp)); }
 .pedal.drive { background: linear-gradient(160deg, #37874f, var(--drive)); }
 .pedal.nam { background: linear-gradient(160deg, #7350aa, var(--nam)); min-width: 220px; }
+.pedal.octave { background: linear-gradient(160deg, #a3612a, #7a4318); }
+.pedal.envf { background: linear-gradient(160deg, #a8892a, #7c6215); }
+.pedal.chorus { background: linear-gradient(160deg, #2a8f8f, #186666); }
+.board { display: flex; gap: 14px; flex-wrap: wrap; align-items: stretch; flex: 1; min-width: 0; }
+.ped-top { display: flex; align-items: center; gap: 2px; margin: -6px -8px 2px; }
+.ped-sp { flex: 1; }
+.ped-btn { background: #0003; border: 0; color: #ffffffb0; border-radius: 4px; width: 20px; height: 18px; font-size: 11px; line-height: 18px; padding: 0; }
+.ped-btn:hover { background: #0006; color: #fff; }
+.ped-grip { cursor: grab; color: #ffffff90; font-size: 13px; padding: 0 4px; user-select: none; }
+.pedal.dragging { opacity: .45; }
+.ped-var, .ped-cat { display: block; margin: 4px auto 6px; max-width: 100%; background: #0005; color: #fff; border: 1px solid #0006; border-radius: 4px; font: 9px var(--mono); letter-spacing: 1px; padding: 3px 4px; }
+.pedal.add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 120px; background: transparent; border: 2px dashed #5a5a62; box-shadow: none; color: var(--muted); cursor: pointer; }
+.pedal.add span { font-size: 28px; line-height: 1; }
+.pedal.add small { font-family: var(--mono); letter-spacing: 2px; font-size: 9px; color: var(--muted); }
+.pedal.add:hover { border-color: var(--gold); color: var(--gold); }
 .pedal.off { filter: saturate(.55) brightness(.85); }
 .pedal .knobs { display: flex; gap: 6px; justify-content: center; }
 .pedal-lcd { background: var(--lcd); border: 1px solid #000; border-radius: 4px; padding: 6px 8px; text-align: left; margin: 6px 0; box-shadow: inset 0 0 10px #000; }
@@ -184,6 +199,7 @@ body.learn .learning { outline: 2px solid #49b6ff !important; animation: blink .
   .top-right { flex-direction: row; }
   .row { padding-left: 0; } .side-label { display: none; }
   .pedal, .unit { min-width: 0; width: 100%; flex: 1 1 100%; }
+  .board { width: 100%; }
   .unit { flex-direction: column; } .unit .knobs { border-left: 0; padding-left: 0; }
   .amp-sec { width: 100%; border-left: 0 !important; margin-bottom: 10px; }
   .kn-row { flex-wrap: wrap; }

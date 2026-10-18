@@ -60,6 +60,9 @@ export class Engine {
     return this._req({ type: 'adopt', slot, id, activate, info: built.info, snapshot: built.snapshot }, [built.snapshot]);
   }
   selectModel(slot, id) { return this._req({ type: 'select', slot, id }); }
+  // pedalboard: full list (order, types, params) or a single pedal update
+  setBoard(list) { this.front.port.postMessage({ type: 'board', list }); }
+  setPedal(uid, patch) { this.front.port.postMessage({ type: 'pedal', uid, ...patch }); }
   unloadModel(slot) { this.front.port.postMessage({ type: 'unload', slot }); }
 
   build() {
@@ -141,7 +144,7 @@ export class Engine {
     const p = this.p, c = this.ctx, t = c.currentTime, T = 0.02;
     const ramp = (param, v) => param.setTargetAtTime(v, t, T);
     const front = {};
-    for (const id of ids) if (/^(in\.|gate\.|comp\.|drive\.|pedal\.|amp\.|normalize|bypass)/.test(id) && id !== 'in.channel') front[id] = typeof p[id] === 'boolean' ? (p[id] ? 1 : 0) : p[id];
+    for (const id of ids) if (/^(in\.|amp\.|normalize|bypass)/.test(id) && id !== 'in.channel') front[id] = typeof p[id] === 'boolean' ? (p[id] ? 1 : 0) : p[id];
     if (Object.keys(front).length) this.front.port.postMessage({ type: 'params', p: front });
 
     const eqOn = p['eq.on'] !== false && !p.bypass;
