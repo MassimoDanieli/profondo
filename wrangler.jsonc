@@ -1,0 +1,8 @@
+// Static Cloudflare Worker: `npx wrangler deploy` (CI does this on every push to main).
+{
+  "name": "profondo",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./app" }
+  // Custom domain (zone must be in the same Cloudflare account):
+  // ,"routes": [{ "pattern": "profondo.massimodanieli.com", "custom_domain": true }]
+}

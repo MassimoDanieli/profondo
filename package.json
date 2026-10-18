@@ -1,0 +1,20 @@
+{
+  "name": "profondo",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Neural Amp Modeler bass rig in the browser",
+  "type": "module",
+  "scripts": {
+    "start": "node tests/serve-dev.mjs",
+    "deps": "bash wasm/fetch-deps.sh",
+    "build:wasm": "bash wasm/build.sh",
+    "test:fidelity": "node tests/fidelity.mjs .deps/native-ref .deps/NeuralAmpModelerCore/example_models",
+    "test:e2e": "node tests/e2e.mjs .deps/NeuralAmpModelerCore/example_models",
+    "deploy": "wrangler deploy",
+    "build:ref": "g++ -std=c++20 -O2 -DNAM_SAMPLE_FLOAT -DNAM_ENABLE_A2_FAST -I.deps/NeuralAmpModelerCore -I.deps/NeuralAmpModelerCore/NAM -I.deps/NeuralAmpModelerCore/Dependencies/nlohmann -isystem .deps/eigen .deps/NeuralAmpModelerCore/NAM/*.cpp .deps/NeuralAmpModelerCore/NAM/wavenet/*.cpp tests/native-ref.cpp -o .deps/native-ref",
+    "test": "npm run test:fidelity && npm run test:e2e"
+  },
+  "devDependencies": {
+    "playwright": "1.56.0"
+  }
+}

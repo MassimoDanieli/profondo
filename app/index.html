@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Profondo · NAM bass rig</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23d9b45a'/%3E%3Ccircle cx='32' cy='32' r='18' fill='%23222'/%3E%3Crect x='30' y='14' width='4' height='14' rx='2' fill='%23d9b45a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Yellowtail&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="rig">
+
+  <!-- ===== HEADER ===== -->
+  <header class="top">
+    <div class="brand">
+      <div class="logo">Profondo</div>
+      <div class="sub">neural bass rig · <span id="ver">v0.1</span></div>
+    </div>
+
+    <div class="lcd" id="lcd">
+      <div class="lcd-cell drop" data-drop="amp">
+        <div class="lcd-head"><span>NAM · AMP</span>
+          <div class="lcd-btns"><button class="mini" data-menu="amp">MODELS ▾</button><button class="mini" data-file="amp">LOAD</button></div></div>
+        <div class="lcd-name" id="ampName">Built-in Tube (no model)</div>
+        <div class="lcd-info" id="ampInfo">drop a .nam here · tone3000.com</div>
+      </div>
+      <div class="lcd-cell drop" data-drop="cab">
+        <div class="lcd-head"><span>CAB IR</span>
+          <div class="lcd-btns"><button class="mini" data-menu="cab">CABS ▾</button><button class="mini" data-file="cab">LOAD</button></div></div>
+        <div class="lcd-name" id="cabName">8x10 Classic (synth)</div>
+        <div class="lcd-info" id="cabInfo">built-in · drop a .wav here</div>
+      </div>
+    </div>
+
+    <div class="preset-box">
+      <div class="preset-row">
+        <button class="nav" data-a="a:prev" title="Previous preset (←)">◀</button>
+        <div class="preset-name" id="presetName" title="Click to rename">01 · Clean DI</div>
+        <button class="nav" data-a="a:next" title="Next preset (→)">▶</button>
+      </div>
+      <div class="preset-row small">
+        <button class="mini" id="btnSave">SAVE</button>
+        <button class="mini" id="btnSaveAs">SAVE AS</button>
+        <button class="mini" id="btnPresets">PRESETS</button>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <button class="hw" id="btnTuner" data-a="a:tuner"><i class="led"></i>TUNER</button>
+      <button class="hw" id="btnBypass" data-a="a:bypass"><i class="led"></i>BYPASS</button>
+    </div>
+  </header>
+
+  <!-- ===== PRE FX ===== -->
+  <section class="row prefx">
+    <div class="side-label">PRE FX</div>
+    <div class="pedal gate" data-block="gate">
+      <h3>GATE</h3><small>noise gate</small>
+      <div class="knobs"><div class="knob" data-p="gate.thresh"></div><div class="knob" data-p="gate.release"></div></div>
+      <div class="foot"><i class="led" data-led="gate.on"></i><button class="fsw" data-t="gate.on"></button></div>
+    </div>
+    <div class="pedal comp" data-block="comp">
+      <h3>COMP</h3><small>bass compressor · GR <b id="grVal">0.0</b> dB</small>
+      <div class="knobs"><div class="knob" data-p="comp.sustain"></div><div class="knob" data-p="comp.attack"></div><div class="knob" data-p="comp.level"></div><div class="knob" data-p="comp.blend"></div></div>
+      <div class="grbar"><i id="grBar"></i></div>
+      <div class="foot"><i class="led" data-led="comp.on"></i><button class="fsw" data-t="comp.on"></button></div>
+    </div>
+    <div class="pedal drive" data-block="drive">
+      <h3>DRIVE</h3><small>blend overdrive · lows stay clean</small>
+      <div class="knobs"><div class="knob" data-p="drive.gain"></div><div class="knob" data-p="drive.tone"></div><div class="knob" data-p="drive.level"></div><div class="knob" data-p="drive.blend"></div></div>
+      <div class="foot"><i class="led" data-led="drive.on"></i><button class="fsw" data-t="drive.on"></button></div>
+    </div>
+    <div class="pedal nam drop" data-block="pedal" data-drop="pedal">
+      <h3>NAM PEDAL</h3>
+      <div class="pedal-lcd">
+        <div class="lcd-head"><span id="pedalName">— empty —</span>
+          <div class="lcd-btns"><button class="mini" data-menu="pedal">▾</button><button class="mini" data-file="pedal">LOAD</button></div></div>
+        <div class="lcd-info" id="pedalInfo">drop a .nam pedal capture</div>
+      </div>
+      <div class="knobs"><div class="knob" data-p="pedal.input"></div><div class="knob" data-p="pedal.level"></div></div>
+      <div class="foot"><i class="led" data-led="pedal.on"></i><button class="fsw" data-t="pedal.on"></button></div>
+    </div>
+    <div class="chain-hint">bass → gate → comp → drive → NAM pedal → NAM amp → EQ → cab ⇄ clean blend → delay → reverb</div>
+  </section>
+
+  <!-- ===== AMP ===== -->
+  <section class="amp" data-block="amp">
+    <div class="amp-sec"><h4>INPUT</h4><div class="knob lg" data-p="amp.input"></div></div>
+    <div class="amp-sec grow"><h4>TONE STACK</h4>
+      <div class="kn-row">
+        <div class="knob lg" data-p="eq.bass"></div><div class="knob lg" data-p="eq.lowmid"></div>
+        <div class="knob lg" data-p="eq.mid"></div><div class="knob" data-p="eq.midfreq"></div>
+        <div class="knob lg" data-p="eq.treble"></div><div class="knob lg" data-p="eq.presence"></div>
+      </div>
+    </div>
+    <div class="amp-sec"><h4>CLEAN BLEND</h4>
+      <div class="kn-row"><div class="knob lg" data-p="blend.amount"></div><div class="knob" data-p="blend.xover"></div><div class="knob" data-p="blend.align"></div></div>
+      <div class="blend-btns"><button class="amp-btn" data-t="blend.phase" title="Invert the clean signal polarity"><i class="led" data-led="blend.phase"></i>Ø PHASE</button><button class="amp-btn" id="btnAlign" data-a="a:align" title="Measure the amp + cab delay and align the clean DI">AUTO</button></div>
+    </div>
+    <div class="amp-sec"><h4>CAB</h4><div class="knob lg" data-p="cab.level"></div></div>
+    <div class="amp-sec"><h4>MASTER</h4>
+      <div class="kn-row"><div class="knob" data-p="amp.output"></div><div class="knob lg" data-p="master.vol"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== POST FX ===== -->
+  <section class="row postfx">
+    <div class="side-label">POST FX</div>
+    <div class="unit delay" data-block="delay">
+      <div class="unit-left">
+        <h3>TAPE DELAY</h3>
+        <div class="seg" id="delayMode"><button data-v="ms">MS</button><button data-v="sync">SYNC</button></div>
+        <div class="sync-row">
+          <select id="delayDiv" class="sel" title="Subdivision"></select>
+          <button class="tap" data-a="a:tap" id="btnTap" title="Tap tempo (T)">TAP <b id="bpmVal">120</b></button>
+        </div>
+        <div class="seg small" id="delayPP"><button data-v="0">STEREO</button><button data-v="1">PING-PONG</button></div>
+        <button class="onbtn" data-t="delay.on"><i class="led" data-led="delay.on"></i>ON</button>
+      </div>
+      <div class="knobs">
+        <div class="knob" data-p="delay.time"></div><div class="knob" data-p="delay.feedback"></div><div class="knob" data-p="delay.level"></div>
+        <div class="knob" data-p="delay.hiroll"></div><div class="knob" data-p="delay.locut"></div><div class="knob" data-p="delay.wow"></div><div class="knob" data-p="delay.width"></div>
+      </div>
+    </div>
+    <div class="unit reverb" data-block="rev">
+      <div class="unit-left">
+        <h3>REVERB</h3><small>stereo convolution</small>
+        <div class="pedal-lcd drop" data-drop="room">
+          <div class="lcd-head"><span>ROOM IR</span><div class="lcd-btns"><button class="mini" data-menu="room">▾</button><button class="mini" data-file="room">LOAD</button></div></div>
+          <div class="lcd-name" id="roomName">Studio Live</div>
+        </div>
+        <button class="onbtn" data-t="rev.on"><i class="led" data-led="rev.on"></i>ON</button>
+      </div>
+      <div class="knobs"><div class="knob" data-p="rev.level"></div><div class="knob" data-p="rev.predelay"></div><div class="knob" data-p="rev.hiroll"></div><div class="knob" data-p="rev.locut"></div></div>
+    </div>
+  </section>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="bottom">
+    <div class="chain" id="chain"></div>
+    <div class="meters">
+      <div class="meter"><span>IN</span><div class="mbar"><i id="mIn"></i></div></div>
+      <div class="meter"><span>OUT</span><div class="mbar"><i id="mOut"></i></div></div>
+      <div class="cpu" id="cpu" title="DSP load of the NAM engine">DSP –</div>
+    </div>
+    <div class="foot-btns">
+      <button class="hw" id="btnAudio"><i class="led" id="audioLed"></i>AUDIO</button>
+      <button class="hw" id="btnMidi"><i class="led" id="midiLed"></i>MIDI</button>
+      <button class="hw" id="btnLearn"><i class="led" id="learnLed"></i>LEARN</button>
+      <button class="hw" data-t="normalize"><i class="led" data-led="normalize"></i>NORMALIZE</button>
+      <button class="hw" id="btnHelp">?</button>
+    </div>
+  </footer>
+  <div class="hint">drop .nam on the amp or the pedal · .wav on the cab or the reverb · keys: 1–9 blocks · ←/→ presets · T tap · U tuner · B bypass</div>
+</div>
+
+<!-- start overlay -->
+<div class="overlay" id="startOverlay">
+  <div class="start-card">
+    <div class="logo big">Profondo</div>
+    <p>Neural Amp Modeler rig for bass, in the browser.<br>Mac · Windows · Linux — Chrome or Edge recommended.</p>
+    <button class="big-btn" id="btnStart">▶ START AUDIO</button>
+    <p class="tiny" id="startMsg">Use headphones or turn monitors down. The browser will ask for audio-input permission.</p>
+  </div>
+</div>
+
+<!-- generic modal -->
+<div class="overlay hidden" id="modal"><div class="modal"><button class="x" id="modalX">✕</button><div id="modalBody"></div></div></div>
+
+<!-- tuner -->
+<div class="overlay hidden" id="tuner">
+  <div class="tuner-card">
+    <div class="t-note" id="tNote">–</div>
+    <div class="t-freq" id="tFreq">play a string</div>
+    <div class="t-scale"><div class="t-zero"></div><div class="t-needle" id="tNeedle"></div></div>
+    <div class="t-cents" id="tCents"></div>
+    <div class="t-row"><label><input type="checkbox" id="tMute" checked> mute while tuning</label>
+      <label>A4 <input type="number" id="tA4" value="440" min="415" max="466" step="1"> Hz</label></div>
+    <button class="hw" data-a="a:tuner">CLOSE (U)</button>
+  </div>
+</div>
+
+<div class="dropdown hidden" id="dropdown"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" hidden>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
