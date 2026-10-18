@@ -162,13 +162,15 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
 <h3>Dove caricarli</h3>
 <div class="scroll"><table>
   <tr><th>File</th><th>Dove</th></tr>
-  <tr><td>.nam ampli</td><td>Trascinalo sul display <b>NAM · AMP</b> in alto, oppure LOAD. (Trascinato in un punto qualsiasi della pagina va all'ampli.)</td></tr>
+  <tr><td>.nam ampli</td><td>Uno o più file, o una cartella: trascinali sul display <b>NAM · AMP</b> in alto, oppure LOAD. (Trascinato in un punto qualsiasi della pagina va all'ampli.)</td></tr>
   <tr><td>.nam pedale</td><td>Trascinalo sul pedale viola <b>NAM PEDAL</b>, oppure il suo LOAD. Si accende da solo.</td></tr>
   <tr><td>.wav cassa</td><td>Sul display <b>CAB IR</b>. Viene usata la prima parte (fino a 0,25 s).</td></tr>
   <tr><td>.wav riverbero</td><td>Sul riquadro <b>ROOM IR</b> del riverbero (fino a 10 s, mono o stereo).</td></tr>
 </table></div>
 <ul>
-  <li>Ogni file caricato finisce nella <b>libreria</b> del browser: lo ritrovi nel menu ▾ (MODELS, CABS, ROOM) senza ricaricarlo. "Manage library…" per cancellarli.</li>
+  <li><b>Più file o cartelle intere:</b> LOAD accetta una selezione multipla; nel menu ▾ c'è <i>Import a whole folder…</i>; puoi anche trascinare una cartella (sottocartelle comprese). Vengono importati tutti i <code>.nam</code> e le IR trovate, e si attiva il primo file adatto al blocco.</li>
+  <li>Ogni file caricato finisce nella <b>libreria</b> del browser, raggruppato per cartella: lo ritrovi nel menu ▾ (MODELS, CABS, ROOM) con la <b>ricerca</b> in alto. I file identici non vengono duplicati. "Manage library…" per cancellare file o cartelle intere.</li>
+  <li><b>◂ ▸</b> sul display passano al modello o alla IR precedente/successiva <b>della stessa cartella</b>: il modo più veloce per provare un intero pacchetto. Da tastiera <kbd>[</kbd> <kbd>]</kbd> per l'ampli, <kbd>,</kbd> <kbd>.</kbd> per la cassa; si possono anche assegnare a un footswitch con LEARN.</li>
   <li>Il display mostra frequenza, architettura (WaveNet, LSTM, A2) e loudness del modello.</li>
   <li><b>NORMALIZE</b> (in basso, acceso di serie) porta ogni cattura allo stesso volume usando i dati di loudness del file: cambiando modello non hai salti di volume.</li>
   <li>Il caricamento avviene "dietro le quinte" e il passaggio tra due modelli è una dissolvenza: puoi cambiare mentre suoni.</li>
@@ -248,6 +250,8 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
   <tr><th>Tasto</th><th>Azione</th></tr>
   <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Accende/spegne gate, comp, drive, pedale, ampli, EQ, cassa, delay, riverbero</td></tr>
   <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Preset precedente / successivo</td></tr>
+  <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Modello ampli precedente / successivo (stessa cartella)</td></tr>
+  <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>IR cassa precedente / successiva (stessa cartella)</td></tr>
   <tr><td><kbd>T</kbd></td><td>Tap tempo</td></tr>
   <tr><td><kbd>U</kbd></td><td>Accordatore</td></tr>
   <tr><td><kbd>B</kbd></td><td>Bypass</td></tr>
@@ -361,13 +365,15 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
 <h3>Where to load them</h3>
 <div class="scroll"><table>
   <tr><th>File</th><th>Where</th></tr>
-  <tr><td>.nam amp</td><td>Drop it on the <b>NAM · AMP</b> display at the top, or LOAD. (Dropped anywhere else on the page it goes to the amp.)</td></tr>
+  <tr><td>.nam amp</td><td>One or more files, or a folder: drop them on the <b>NAM · AMP</b> display at the top, or LOAD. (Dropped anywhere else on the page it goes to the amp.)</td></tr>
   <tr><td>.nam pedal</td><td>Drop it on the purple <b>NAM PEDAL</b>, or its LOAD. It switches on by itself.</td></tr>
   <tr><td>.wav cab</td><td>On the <b>CAB IR</b> display. The first 0.25 s is used.</td></tr>
   <tr><td>.wav reverb</td><td>On the reverb's <b>ROOM IR</b> box (up to 10 s, mono or stereo).</td></tr>
 </table></div>
 <ul>
-  <li>Every file you load goes into the browser <b>library</b>: find it again in the ▾ menus (MODELS, CABS, ROOM). "Manage library…" deletes them.</li>
+  <li><b>Many files or whole folders:</b> LOAD accepts a multiple selection; the ▾ menu has <i>Import a whole folder…</i>; you can also drop a folder (subfolders included). Every <code>.nam</code> and IR found is imported, and the first file that fits the block is activated.</li>
+  <li>Every file goes into the browser <b>library</b>, grouped by folder: find it again in the ▾ menus (MODELS, CABS, ROOM) with the <b>search</b> box at the top. Identical files are not duplicated. "Manage library…" deletes files or whole folders.</li>
+  <li><b>◂ ▸</b> on the display step to the previous/next model or IR <b>in the same folder</b>: the quickest way to audition a whole pack. Keys <kbd>[</kbd> <kbd>]</kbd> for the amp, <kbd>,</kbd> <kbd>.</kbd> for the cab; they can be mapped to a footswitch with LEARN too.</li>
   <li>The display shows sample rate, architecture (WaveNet, LSTM, A2) and the model's loudness.</li>
   <li><b>NORMALIZE</b> (bottom bar, on by default) brings every capture to the same level using its loudness metadata, so switching models doesn't jump in volume.</li>
   <li>Models load in the background and switching is a crossfade: you can change while playing.</li>
@@ -447,6 +453,8 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
   <tr><th>Key</th><th>Action</th></tr>
   <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Toggle gate, comp, drive, pedal, amp, EQ, cab, delay, reverb</td></tr>
   <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next preset</td></tr>
+  <tr><td><kbd>[</kbd> <kbd>]</kbd></td><td>Previous / next amp model (same folder)</td></tr>
+  <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Previous / next cab IR (same folder)</td></tr>
   <tr><td><kbd>T</kbd></td><td>Tap tempo</td></tr>
   <tr><td><kbd>U</kbd></td><td>Tuner</td></tr>
   <tr><td><kbd>B</kbd></td><td>Bypass</td></tr>

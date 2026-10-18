@@ -1,6 +1,6 @@
 // End-to-end checks in headless Chromium (fake audio input). Usage: node tests/e2e.mjs <NAM example_models dir>
 import { chromium } from 'playwright';
-import path from 'path'; import { fileURLToPath } from 'url';
+import path from 'path'; import fs from 'fs'; import os from 'os'; import { fileURLToPath } from 'url';
 import { serve } from './serve.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const models = path.resolve(process.argv[2] || '.deps/NeuralAmpModelerCore/example_models');
@@ -116,6 +116,45 @@ const al = await page.evaluate(async () => {
   return res;
 });
 for (const r of al) check(r.got && Math.abs(r.got.ms - r.ms) < 0.8 && r.got.invert === r.invert, `auto-align finds ${r.ms} ms${r.invert ? ' inverted' : ''}`, r.got ? `${r.got.ms} ms, invert ${r.got.invert}` : 'no result');
+
+// ---- 3b. multi-file and folder import, library browsing
+{
+  const nams = fs.readdirSync(models).filter((f) => f.endsWith('.nam')).map((f) => path.join(models, f));
+  const [fc2] = await Promise.all([page.waitForEvent('filechooser'), page.click('[data-file="amp"]')]);
+  check(await fc2.isMultiple(), 'LOAD accepts multiple files');
+  await fc2.setFiles(nams); await page.waitForTimeout(2500);
+  const lib1 = await page.evaluate(async () => (await window.__profondo.Library.list()).filter((x) => x.kind === 'nam').length);
+  check(lib1 >= nams.length - 1, 'multi-select imports every capture', `${lib1} of ${nams.length} in library`);
+  const before = await page.textContent('#ampName');
+  await page.click('[data-a="a:amp-next"]'); await page.waitForTimeout(1500);
+  const after = await page.textContent('#ampName');
+  check(before !== after, '▸ steps to the next model', `${before} → ${after}`);
+  await page.click('[data-menu="amp"]'); await page.waitForTimeout(300);
+  const hasSearch = await page.$('#dropdown .dd-search');
+  if (hasSearch) { await page.fill('#dropdown .dd-search', 'lstm'); await page.waitForTimeout(100); }
+  const rows = await page.$$eval('#dropdown .dd-body > div:not(.sec)', (r) => r.map((x) => x.textContent));
+  check(!!hasSearch && rows.length === 1 && /lstm/i.test(rows[0]), 'model menu search filters the library', JSON.stringify(rows));
+  await page.keyboard.press('Escape');
+  // folder with subfolders, mixed .nam + .wav
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pack-')), pack = path.join(dir, 'BassPack');
+  fs.mkdirSync(path.join(pack, 'Amps'), { recursive: true }); fs.mkdirSync(path.join(pack, 'Cabs'));
+  const tiny = JSON.parse(fs.readFileSync(path.join(models, 'lstm.nam'), 'utf8')); tiny.metadata = { ...(tiny.metadata || {}), name: 'Tiny LSTM' };
+  fs.writeFileSync(path.join(pack, 'Amps', 'Tiny LSTM.nam'), JSON.stringify(tiny)); // distinct file (identical files are de-duplicated)
+  const wav = (ms) => { const sr = 48000, len = 1024, b = Buffer.alloc(44 + len * 2); b.write('RIFF', 0); b.writeUInt32LE(36 + len * 2, 4); b.write('WAVEfmt ', 8); b.writeUInt32LE(16, 16); b.writeUInt16LE(1, 20); b.writeUInt16LE(1, 22); b.writeUInt32LE(sr, 24); b.writeUInt32LE(sr * 2, 28); b.writeUInt16LE(2, 32); b.writeUInt16LE(16, 34); b.write('data', 36); b.writeUInt32LE(len * 2, 40); b.writeInt16LE(20000, 44 + Math.round(ms * 48) * 2); return b; };
+  fs.writeFileSync(path.join(pack, 'Cabs', '810 SM57.wav'), wav(0.5)); fs.writeFileSync(path.join(pack, 'Cabs', '410 R121.wav'), wav(1)); fs.writeFileSync(path.join(pack, 'readme.txt'), 'x');
+  await page.click('[data-menu="cab"]'); await page.waitForTimeout(200);
+  const [fc3] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#dropdown .dd-body > div', { hasText: 'Import a whole folder' }).click()]);
+  await fc3.setFiles(pack); await page.waitForTimeout(2500);
+  const lib2 = await page.evaluate(async () => (await window.__profondo.Library.list()).filter((x) => x.folder && x.folder.startsWith('BassPack')).map((x) => `${x.kind}:${x.folder}/${x.name}`).sort());
+  check(lib2.length === 3 && lib2.includes('ir:BassPack/Cabs/410 R121') && lib2.includes('nam:BassPack/Amps/Tiny LSTM'), 'folder import keeps subfolders, mixed .nam and .wav', JSON.stringify(lib2));
+  check((await page.textContent('#cabName')) === '410 R121', 'first IR of the folder becomes the cab', await page.textContent('#cabName'));
+  await page.click('[data-a="a:cab-next"]'); await page.waitForTimeout(800);
+  check((await page.textContent('#cabName')) === '810 SM57', 'cab ▸ steps inside the same folder', await page.textContent('#cabName'));
+  await page.click('[data-menu="cab"]'); await page.waitForTimeout(200);
+  const secs = await page.$$eval('#dropdown .dd-body > div.sec', (r) => r.map((x) => x.textContent));
+  check(secs.some((s) => s.includes('BassPack/Cabs')), 'cab menu groups IRs by folder', JSON.stringify(secs));
+  await page.keyboard.press('Escape');
+}
 
 // ---- 4. tuner + mobile layout
 await page.keyboard.press('u'); await page.waitForTimeout(1200);

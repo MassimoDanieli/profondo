@@ -22,13 +22,13 @@
     <div class="lcd" id="lcd">
       <div class="lcd-cell drop" data-drop="amp">
         <div class="lcd-head"><span>NAM · AMP</span>
-          <div class="lcd-btns"><button class="mini" data-menu="amp">MODELS ▾</button><button class="mini" data-file="amp">LOAD</button></div></div>
+          <div class="lcd-btns"><button class="mini" data-a="a:amp-prev" title="Previous model in this folder ( [ )">◂</button><button class="mini" data-a="a:amp-next" title="Next model in this folder ( ] )">▸</button><button class="mini" data-menu="amp">MODELS ▾</button><button class="mini" data-file="amp" title="Load one or more .nam files">LOAD</button></div></div>
         <div class="lcd-name" id="ampName">Built-in Tube (no model)</div>
-        <div class="lcd-info" id="ampInfo">drop a .nam here · tone3000.com</div>
+        <div class="lcd-info" id="ampInfo">drop .nam files or a folder here · tone3000.com</div>
       </div>
       <div class="lcd-cell drop" data-drop="cab">
         <div class="lcd-head"><span>CAB IR</span>
-          <div class="lcd-btns"><button class="mini" data-menu="cab">CABS ▾</button><button class="mini" data-file="cab">LOAD</button></div></div>
+          <div class="lcd-btns"><button class="mini" data-a="a:cab-prev" title="Previous IR in this folder ( , )">◂</button><button class="mini" data-a="a:cab-next" title="Next IR in this folder ( . )">▸</button><button class="mini" data-menu="cab">CABS ▾</button><button class="mini" data-file="cab" title="Load one or more IR files">LOAD</button></div></div>
         <div class="lcd-name" id="cabName">8x10 Classic (synth)</div>
         <div class="lcd-info" id="cabInfo">built-in · drop a .wav here</div>
       </div>
@@ -76,7 +76,7 @@
       <h3>NAM PEDAL</h3>
       <div class="pedal-lcd">
         <div class="lcd-head"><span id="pedalName">— empty —</span>
-          <div class="lcd-btns"><button class="mini" data-menu="pedal">▾</button><button class="mini" data-file="pedal">LOAD</button></div></div>
+          <div class="lcd-btns"><button class="mini" data-a="a:pedal-prev" title="Previous model in this folder">◂</button><button class="mini" data-a="a:pedal-next" title="Next model in this folder">▸</button><button class="mini" data-menu="pedal">▾</button><button class="mini" data-file="pedal">LOAD</button></div></div>
         <div class="lcd-info" id="pedalInfo">drop a .nam pedal capture</div>
       </div>
       <div class="knobs"><div class="knob" data-p="pedal.input"></div><div class="knob" data-p="pedal.level"></div></div>
@@ -153,7 +153,7 @@
       <button class="hw" id="btnHelp" title="Help / Guida">?</button>
     </div>
   </footer>
-  <div class="hint">drop .nam on the amp or the pedal · .wav on the cab or the reverb · keys: 1–9 blocks · ←/→ presets · T tap · U tuner · B bypass</div>
+  <div class="hint">drop .nam files or folders on the amp or the pedal · .wav on the cab or the reverb · keys: 1–9 blocks · ←/→ presets · [ ] amp models · , . cab IRs · T tap · U tuner · B bypass</div>
 </div>
 
 <!-- start overlay -->

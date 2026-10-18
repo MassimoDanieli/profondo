@@ -1,17 +1,28 @@
 // Model / IR library in IndexedDB, small settings in localStorage (always guarded).
 
-const DB = 'profondo', STORE = 'library';
+const DB = 'profondo', STORE = 'library', META = 'meta';
+// v2: a separate 'meta' store (no bytes) so listing a large library stays fast
 let dbp = null;
 function db() {
   if (dbp) return dbp;
   dbp = new Promise((res, rej) => {
-    const r = indexedDB.open(DB, 1);
-    r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'id' });
+    const r = indexedDB.open(DB, 2);
+    r.onupgradeneeded = (e) => {
+      const d = r.result, t = r.transaction;
+      if (!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE, { keyPath: 'id' });
+      if (!d.objectStoreNames.contains(META)) {
+        const meta = d.createObjectStore(META, { keyPath: 'id' });
+        if (e.oldVersion >= 1) { // migrate v1 entries
+          const c = t.objectStore(STORE).openCursor();
+          c.onsuccess = () => { const cur = c.result; if (!cur) return; const { bytes, ...m } = cur.value; meta.put({ ...m, size: bytes?.byteLength || 0 }); cur.continue(); };
+        }
+      }
+    };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   });
   return dbp;
 }
-const tx = async (mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction(STORE, mode); const s = t.objectStore(STORE); const r = fn(s); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }); };
+const tx = async (stores, mode, fn) => { const d = await db(); return new Promise((res, rej) => { const t = d.transaction(stores, mode); const r = fn(t); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); };
 
 export async function hashBytes(buf) {
   const h = await crypto.subtle.digest('SHA-256', buf);
@@ -19,17 +30,15 @@ export async function hashBytes(buf) {
 }
 
 export const Library = {
-  async put(item) { try { await tx('readwrite', (s) => s.put(item)); } catch (e) { console.warn('library put failed', e); } },
-  async get(id) { try { return await tx('readonly', (s) => s.get(id)); } catch { return null; } },
-  async del(id) { try { await tx('readwrite', (s) => s.delete(id)); } catch {} },
-  async list() {
-    try {
-      const d = await db();
-      return await new Promise((res) => { const out = []; const c = d.transaction(STORE).objectStore(STORE).openCursor();
-        c.onsuccess = () => { const cur = c.result; if (cur) { const { bytes, ...meta } = cur.value; out.push({ ...meta, size: bytes?.byteLength || 0 }); cur.continue(); } else res(out); };
-        c.onerror = () => res(out); });
-    } catch { return []; }
+  async put(item) {
+    const { bytes, ...m } = item;
+    try { await tx([STORE, META], 'readwrite', (t) => { t.objectStore(STORE).put(item); t.objectStore(META).put({ ...m, size: bytes?.byteLength || 0 }); }); return true; }
+    catch (e) { console.warn('library put failed', e); return false; }
   },
+  async get(id) { try { return await tx([STORE], 'readonly', (t) => t.objectStore(STORE).get(id)); } catch { return null; } },
+  async has(id) { try { return !!(await tx([META], 'readonly', (t) => t.objectStore(META).getKey(id))); } catch { return false; } },
+  async del(id) { try { await tx([STORE, META], 'readwrite', (t) => { t.objectStore(STORE).delete(id); t.objectStore(META).delete(id); }); } catch {} },
+  async list() { try { return (await tx([META], 'readonly', (t) => t.objectStore(META).getAll())) || []; } catch { return []; } },
 };
 
 export const LS = {

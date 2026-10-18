@@ -159,12 +159,14 @@ body.learn .learning { outline: 2px solid #49b6ff !important; animation: blink .
 .t-row input[type=number] { width: 56px; background: #151517; color: var(--text); border: 1px solid #45454c; border-radius: 4px; padding: 3px; }
 
 .dropdown { position: fixed; z-index: 60; background: #1a1206; border: 1px solid #6b4e22; border-radius: 6px; min-width: 260px; max-width: 420px; max-height: 60vh; overflow: auto; box-shadow: 0 10px 30px #000; font-family: var(--mono); font-size: 12px; }
-.dropdown div { padding: 7px 12px; color: var(--lcdtxt); cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
-.dropdown div:hover { background: #3a2a12; }
-.dropdown div.sec { color: var(--lcddim); font-size: 9px; letter-spacing: 2px; cursor: default; padding-top: 10px; }
-.dropdown div.sec:hover { background: none; }
-.dropdown div.cur { background: #2a1e0c; }
-.dropdown small { color: var(--lcddim); }
+.dropdown .dd-search { position: sticky; top: 0; z-index: 1; display: block; width: 100%; margin: 0; padding: 9px 12px; border: 0; border-bottom: 1px solid #6b4e22; background: #2a1e0c; color: var(--lcdtxt); font: 12px var(--mono); outline: none; }
+.dd-body > div { padding: 7px 12px; min-width: 0; color: var(--lcdtxt); cursor: pointer; display: flex; justify-content: space-between; gap: 12px; }
+.dd-body > div:hover { background: #3a2a12; }
+.dd-body > div.sec { color: var(--lcddim); font-size: 9px; letter-spacing: 2px; cursor: default; padding-top: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dd-body > div.sec:hover { background: none; }
+.dd-body > div.cur { background: #2a1e0c; }
+.dropdown small { color: var(--lcddim); flex-shrink: 0; }
+.dd-body > div > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: #2a1e0c; border: 1px solid #6b4e22; color: var(--lcdtxt); font-family: var(--mono); font-size: 12px; padding: 10px 16px; border-radius: 6px; transition: transform .25s; z-index: 70; max-width: calc(100vw - 32px); }
 .toast.show { transform: translateX(-50%) translateY(0); }
 

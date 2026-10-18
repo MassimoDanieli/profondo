@@ -5,7 +5,7 @@ import { Library, LS, hashBytes } from './store.js';
 import { Midi } from './midi.js';
 import { detectPitch, noteOf } from './tuner.js';
 
-const VERSION = 'v0.3.1';
+const VERSION = 'v0.3.2';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -168,6 +168,7 @@ function doAction(a) {
     }
   }
   else if (a === 'a:align') autoAlign();
+  else if (/^a:(amp|pedal|cab|room)-(prev|next)$/.test(a)) { const [, sl, d] = a.match(/^a:(\w+)-(\w+)$/); stepModel(sl, d === 'next' ? 1 : -1); }
   else if (a.startsWith('a:preset:')) { const n = +a.split(':')[2]; if (n < state.bank.length) recall(n); }
 }
 
@@ -194,7 +195,7 @@ function onTarget(target, v01, raw, map) {
   } else if (P[id]) setParam(id, roundFor(id, fromNorm(id, v01)));
 }
 function targetLabel(t) {
-  if (t.startsWith('a:')) return { 'a:align': 'Auto-align', 'a:prev': 'Preset ◀', 'a:next': 'Preset ▶', 'a:tap': 'Tap tempo', 'a:bypass': 'Bypass', 'a:tuner': 'Tuner' }[t] || t;
+  if (t.startsWith('a:')) return { 'a:amp-prev': 'Amp model ◂', 'a:amp-next': 'Amp model ▸', 'a:pedal-prev': 'Pedal model ◂', 'a:pedal-next': 'Pedal model ▸', 'a:cab-prev': 'Cab IR ◂', 'a:cab-next': 'Cab IR ▸', 'a:room-prev': 'Room IR ◂', 'a:room-next': 'Room IR ▸', 'a:align': 'Auto-align', 'a:prev': 'Preset ◀', 'a:next': 'Preset ▶', 'a:tap': 'Tap tempo', 'a:bypass': 'Bypass', 'a:tuner': 'Tuner' }[t] || t;
   const id = t.slice(2);
   if (P[id]) { const blk = id.split('.')[0].toUpperCase(); return `${blk} ${P[id][0]}`; }
   const b = BLOCKS.find((x) => x[0] === id); return b ? `${b[1]} on/off` : id;
@@ -231,24 +232,81 @@ function namDescription(json, fileName) {
   if (arch === 'SlimmableContainer') arch = 'A2';
   return { name, arch, rate: json.sample_rate || 48000, loud: md.loudness, by: md.modeled_by, type: md.gear_type };
 }
-async function addFile(file, slot) {
-  const bytes = await file.arrayBuffer();
-  const isNam = /\.nam$/i.test(file.name);
-  if (slot === 'amp' || slot === 'pedal') {
-    if (!isNam) return toast('Please drop a .nam file here');
-    let json; try { json = JSON.parse(new TextDecoder().decode(bytes)); } catch { return toast('Invalid .nam file (not JSON)'); }
-    const d = namDescription(json, file.name);
-    const id = 'nam-' + await hashBytes(bytes);
-    await Library.put({ id, kind: 'nam', name: d.name, file: file.name, desc: d, added: Date.now(), bytes });
-    await useModel(slot, id, bytes, d);
-  } else {
-    if (!/\.(wav|aiff?|flac)$/i.test(file.name)) return toast('Please drop a .wav impulse response');
-    const id = 'ir-' + await hashBytes(bytes);
-    const name = file.name.replace(/\.(wav|aiff?|flac)$/i, '');
-    await Library.put({ id, kind: 'ir', name, file: file.name, added: Date.now(), bytes });
-    await useIR(slot, { id, name, builtin: false }, bytes);
+const NAM_RE = /\.nam$/i, IR_RE = /\.(wav|aiff?|flac)$/i;
+const folderOf = (p) => { const i = (p || '').lastIndexOf('/'); return i > 0 ? p.slice(0, i) : ''; };
+const natural = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+let persistAsked = false;
+
+// Import one or many files (from a picker, a folder or a drop) into the library.
+// Every supported file is stored (.nam as models, .wav/.aif/.flac as IRs); the first one that fits the
+// target slot is activated. entries: [{ file, path }] where path is the folder-relative path when known.
+async function importFiles(entries, slot) {
+  const want = !slot || slot === 'amp' || slot === 'pedal' ? 'nam' : 'ir';
+  const list = entries.filter((e) => NAM_RE.test(e.file.name) || IR_RE.test(e.file.name))
+    .sort((x, y) => natural.compare(x.path || x.file.name, y.path || y.file.name));
+  if (!list.length) return toast(!slot ? 'No .nam / IR files found' : want === 'nam' ? 'No .nam files found' : 'No .wav / .aif / .flac files found');
+  if (!persistAsked && navigator.storage?.persist) { persistAsked = true; navigator.storage.persist().catch(() => {}); }
+  let added = 0, dup = 0, bad = 0, first = null; const many = list.length > 1;
+  for (let i = 0; i < list.length; i++) {
+    const { file, path } = list[i];
+    if (many) toast(`Importing ${i + 1} / ${list.length} · ${file.name}`);
+    try {
+      const bytes = await file.arrayBuffer();
+      const isNam = NAM_RE.test(file.name);
+      const id = (isNam ? 'nam-' : 'ir-') + await hashBytes(bytes);
+      const folder = folderOf(path || file.webkitRelativePath || '');
+      let item;
+      if (isNam) {
+        let json; try { json = JSON.parse(new TextDecoder().decode(bytes)); } catch { bad++; continue; }
+        if (!json || !json.architecture) { bad++; continue; }
+        const d = namDescription(json, file.name);
+        item = { id, kind: 'nam', name: d.name, file: file.name, folder, desc: d, added: Date.now() + i };
+      } else item = { id, kind: 'ir', name: file.name.replace(IR_RE, ''), file: file.name, folder, added: Date.now() + i };
+      if (await Library.has(id)) dup++;
+      else if (await Library.put({ ...item, bytes })) added++;
+      else { toast('Browser storage is full: delete something in Manage library'); break; }
+      if (!first && item.kind === want) first = { item, bytes };
+    } catch { bad++; }
   }
+  if (first && slot) {
+    if (want === 'nam') await useModel(slot, first.item.id, first.bytes, first.item.desc);
+    else await useIR(slot, { id: first.item.id, name: first.item.name, builtin: false }, first.bytes);
+  }
+  if (many || bad) {
+    const parts = [`${added} added`]; if (dup) parts.push(`${dup} already in library`); if (bad) parts.push(`${bad} not valid`);
+    toast(`Library: ${parts.join(' · ')}${first && slot && many ? ` — now using “${first.item.name}”, use ◂ ▸ or ▾ to choose` : ''}`);
+  } else if (!first && slot) toast(want === 'nam' ? 'Please use a .nam file here' : 'Please use a .wav impulse response here');
 }
+const addFile = (file, slot) => importFiles([{ file, path: file.webkitRelativePath || '' }], slot);
+
+// Collect files from a drop, descending into folders.
+async function droppedEntries(dt) {
+  const out = [];
+  const items = [...(dt.items || [])].map((it) => it.webkitGetAsEntry?.()).filter(Boolean);
+  if (!items.length) return [...dt.files].map((file) => ({ file, path: '' }));
+  const readAll = (dir) => new Promise((res) => { const r = dir.createReader(), acc = []; const next = () => r.readEntries((b) => { if (!b.length) res(acc); else { acc.push(...b); next(); } }, () => res(acc)); next(); });
+  const walk = async (entry, prefix) => {
+    if (entry.isFile) { const file = await new Promise((res, rej) => entry.file(res, rej)).catch(() => null); if (file) out.push({ file, path: prefix + file.name }); }
+    else if (entry.isDirectory) for (const e of await readAll(entry)) await walk(e, prefix + entry.name + '/');
+  };
+  for (const e of items) await walk(e, '');
+  return out;
+}
+
+// Step through the library (same folder as the current model) — handy for auditioning a pack.
+async function stepModel(slot, dir) {
+  const kind = slot === 'amp' || slot === 'pedal' ? 'nam' : 'ir';
+  const lib = (await Library.list()).filter((x) => x.kind === kind);
+  if (!lib.length) return toast('Library is empty: load or drop some files first');
+  const cur = state.models[slot]?.id, curItem = lib.find((x) => x.id === cur);
+  const pool = (curItem ? lib.filter((x) => (x.folder || '') === (curItem.folder || '')) : lib).sort((x, y) => natural.compare(x.name, y.name));
+  let i = pool.findIndex((x) => x.id === cur);
+  i = i < 0 ? (dir > 0 ? 0 : pool.length - 1) : (i + dir + pool.length) % pool.length;
+  const it = pool[i];
+  if (kind === 'nam') await useModel(slot, it.id); else await useIR(slot, { id: it.id, name: it.name, builtin: false });
+  toast(`${i + 1} / ${pool.length} · ${it.name}${it.folder ? '  — ' + it.folder : ''}`);
+}
+
 async function useModel(slot, id, bytes, desc) {
   if (!engine) { toast('Start audio first'); return; }
   setLcdInfo(slot, 'loading…');
@@ -310,49 +368,74 @@ function renderModels() {
 
 // ---------------- dropdowns ----------------
 async function openMenu(slot, anchor) {
-  const dd = $('#dropdown'); const items = [];
-  const lib = (await Library.list()).sort((x, y) => (y.added || 0) - (x.added || 0));
+  const dd = $('#dropdown');
+  const lib = await Library.list();
   const cur = state.models[slot]?.id;
-  if (slot === 'amp' || slot === 'pedal') {
-    items.push({ sec: 'LIBRARY (.nam)' });
-    const nams = lib.filter((x) => x.kind === 'nam');
-    if (!nams.length) items.push({ sec: '  empty — load or drop a file' });
-    for (const x of nams) items.push({ label: x.name, small: x.desc?.arch || '', cur: x.id === cur, fn: () => useModel(slot, x.id) });
-    items.push({ sec: 'ACTIONS' });
-    items.push({ label: 'Load from disk…', fn: () => pickFile(slot) });
-    items.push({ label: slot === 'amp' ? 'Use built-in tube (no model)' : 'Remove pedal model', fn: () => unloadModel(slot) });
-    items.push({ label: 'Browse TONE3000 ↗', fn: () => window.open('https://www.tone3000.com/search?gear=amp&sort=trending', '_blank', 'noopener') });
-    items.push({ label: 'Manage library…', fn: openLibrary });
-  } else {
-    const builtins = slot === 'cab' ? CAB_PRESETS : ROOM_PRESETS;
-    items.push({ sec: 'BUILT-IN' });
-    for (const [id, b] of Object.entries(builtins)) items.push({ label: b.name, cur: id === cur, fn: () => useIR(slot, { id, name: b.name, builtin: true }) });
-    const irs = lib.filter((x) => x.kind === 'ir');
-    items.push({ sec: 'LIBRARY (.wav)' });
-    if (!irs.length) items.push({ sec: '  empty — load or drop a .wav' });
-    for (const x of irs) items.push({ label: x.name, cur: x.id === cur, fn: () => useIR(slot, { id: x.id, name: x.name, builtin: false }) });
-    items.push({ sec: 'ACTIONS' });
-    items.push({ label: 'Load .wav from disk…', fn: () => pickFile(slot) });
-    items.push({ label: 'Browse IRs on TONE3000 ↗', fn: () => window.open('https://www.tone3000.com/search?gear=ir', '_blank', 'noopener') });
-  }
+  const isNam = slot === 'amp' || slot === 'pedal';
+  const own = lib.filter((x) => x.kind === (isNam ? 'nam' : 'ir'));
+  const head = [], tail = [];
+  if (!isNam) { const builtins = slot === 'cab' ? CAB_PRESETS : ROOM_PRESETS; head.push({ sec: 'BUILT-IN' }); for (const [id, b] of Object.entries(builtins)) head.push({ label: b.name, cur: id === cur, fn: () => useIR(slot, { id, name: b.name, builtin: true }) }); }
+  tail.push({ sec: 'ACTIONS' });
+  tail.push({ label: isNam ? 'Load files… (multiple)' : 'Load IR files… (multiple)', fn: () => pickFile(slot) });
+  tail.push({ label: 'Import a whole folder…', fn: () => pickFile(slot, true) });
+  if (isNam) tail.push({ label: slot === 'amp' ? 'Use built-in tube (no model)' : 'Remove pedal model', fn: () => unloadModel(slot) });
+  tail.push({ label: isNam ? 'Browse TONE3000 ↗' : 'Browse IRs on TONE3000 ↗', fn: () => window.open(isNam ? 'https://www.tone3000.com/search?gear=amp&sort=trending' : 'https://www.tone3000.com/search?gear=ir', '_blank', 'noopener') });
+  tail.push({ label: 'Manage library…', fn: openLibrary });
+  const pick = (x) => isNam ? useModel(slot, x.id) : useIR(slot, { id: x.id, name: x.name, builtin: false });
+
   dd.innerHTML = '';
-  for (const it of items) {
+  let search = null;
+  if (own.length > 6) {
+    search = document.createElement('input'); search.type = 'search'; search.className = 'dd-search';
+    search.placeholder = `Search ${own.length} ${isNam ? 'models' : 'IRs'}…`; dd.appendChild(search);
+  }
+  const body = document.createElement('div'); body.className = 'dd-body'; dd.appendChild(body);
+  const row = (it) => {
     const d = document.createElement('div');
-    if (it.sec) { d.className = 'sec'; d.textContent = it.sec; }
-    else { d.innerHTML = `<span></span><small></small>`; d.firstChild.textContent = it.label; d.lastChild.textContent = it.small || ''; if (it.cur) d.classList.add('cur'); d.onclick = () => { closeMenu(); it.fn(); }; }
-    dd.appendChild(d);
+    if (it.sec) { d.className = 'sec'; d.textContent = it.sec; return d; }
+    d.innerHTML = '<span></span><small></small>'; d.firstChild.textContent = it.label; d.lastChild.textContent = it.small || '';
+    if (it.cur) d.classList.add('cur'); d.onclick = () => { closeMenu(); it.fn(); }; return d;
+  };
+  const render = (q) => {
+    body.innerHTML = '';
+    const ql = (q || '').toLowerCase().trim();
+    if (!ql) head.forEach((it) => body.appendChild(row(it)));
+    const match = own.filter((x) => !ql || `${x.name} ${x.folder || ''} ${x.file || ''}`.toLowerCase().includes(ql));
+    const groups = new Map();
+    for (const x of match) { const f = x.folder || ''; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(x); }
+    const names = [...groups.keys()].sort((a, b) => (a === '' ? -1 : b === '' ? 1 : natural.compare(a, b)));
+    if (!own.length) body.appendChild(row({ sec: `LIBRARY — empty: load files or a folder` }));
+    else if (!match.length) body.appendChild(row({ sec: 'no match' }));
+    for (const f of names) {
+      const items = groups.get(f).sort((x, y) => natural.compare(x.name, y.name));
+      body.appendChild(row({ sec: `${f ? '📁 ' + f : 'LIBRARY'} · ${items.length}` }));
+      const seen = {}; for (const x of items) seen[x.name] = (seen[x.name] || 0) + 1;
+      for (const x of items) body.appendChild(row({ label: seen[x.name] > 1 && x.file ? `${x.name} (${x.file})` : x.name, small: isNam ? (x.desc?.arch || '') : '', cur: x.id === cur, fn: () => pick(x) }));
+    }
+    if (!ql) tail.forEach((it) => body.appendChild(row(it)));
+  };
+  render('');
+  if (search) {
+    search.oninput = () => render(search.value);
+    search.onkeydown = (e) => { if (e.key === 'Enter') { const first = body.querySelector('div:not(.sec)'); first?.click(); } if (e.key === 'Escape') closeMenu(); e.stopPropagation(); };
   }
   const r = anchor.getBoundingClientRect();
   dd.classList.remove('hidden');
   dd.style.left = Math.max(8, Math.min(r.left, innerWidth - dd.offsetWidth - 8)) + 'px';
-  dd.style.top = Math.min(r.bottom + 4, innerHeight - dd.offsetHeight - 8) + 'px';
+  dd.style.top = Math.max(8, Math.min(r.bottom + 4, innerHeight - dd.offsetHeight - 8)) + 'px';
+  dd.querySelector('.cur')?.scrollIntoView({ block: 'nearest' });
+  if (search) setTimeout(() => search.focus(), 0);
   setTimeout(() => document.addEventListener('pointerdown', menuOutside), 0);
 }
 function menuOutside(e) { if (!$('#dropdown').contains(e.target)) closeMenu(); }
 function closeMenu() { $('#dropdown').classList.add('hidden'); document.removeEventListener('pointerdown', menuOutside); }
-function pickFile(slot) {
-  const fi = $('#fileInput'); fi.accept = slot === 'amp' || slot === 'pedal' ? '.nam' : '.wav,.aif,.aiff,.flac';
-  fi.onchange = () => { if (fi.files[0]) addFile(fi.files[0], slot); fi.value = ''; }; fi.click();
+function pickFile(slot, folder = false, done) {
+  const fi = $('#fileInput');
+  fi.multiple = true;
+  fi.webkitdirectory = folder; // a whole folder (subfolders included)
+  fi.accept = folder ? '' : !slot ? '.nam,.wav,.aif,.aiff,.flac' : (slot === 'amp' || slot === 'pedal' ? '.nam' : '.wav,.aif,.aiff,.flac');
+  fi.onchange = async () => { const files = [...fi.files]; fi.value = ''; fi.webkitdirectory = false; if (files.length) await importFiles(files.map((file) => ({ file, path: file.webkitRelativePath || '' })), slot); done?.(); };
+  fi.click();
 }
 
 // ---------------- presets ----------------
@@ -462,22 +545,40 @@ const b64 = (buf) => { const u = new Uint8Array(buf); let s = ''; for (let i = 0
 const unb64 = (s) => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
 
 async function openLibrary() {
-  const b = modal(`<h2>LIBRARY</h2><p class="note">Models and IRs are stored in this browser (IndexedDB). Nothing is uploaded anywhere.</p><table id="libT"></table>`);
+  const b = modal(`<h2>LIBRARY</h2><p class="note">Models and IRs are stored in this browser (IndexedDB). Nothing is uploaded anywhere. <span id="libUse"></span></p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><button class="btn" id="libFiles">ADD FILES…</button><button class="btn" id="libFolder">ADD FOLDER…</button></div>
+    <input type="search" id="libQ" placeholder="Search…" style="width:100%;margin:6px 0 4px">
+    <table id="libT"></table>`);
+  $('#libFiles', b).onclick = () => pickFile(null, false, render);
+  $('#libFolder', b).onclick = () => pickFile(null, true, render);
   const render = async () => {
-    const list = await Library.list(); const t = $('#libT', b);
-    t.innerHTML = '<tr><th>Type</th><th>Name</th><th>Size</th><th></th></tr>';
-    for (const x of list) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${x.kind === 'nam' ? 'NAM ' + (x.desc?.arch || '') : 'IR'}</td><td></td><td>${(x.size / 1024).toFixed(0)} KB</td><td><button class="btn">DELETE</button></td>`;
-      tr.children[1].textContent = x.name;
-      tr.querySelector('button').onclick = async () => { if (confirm(`Delete ${x.name}?`)) { await Library.del(x.id); render(); } };
-      t.appendChild(tr);
+    const q = ($('#libQ', b)?.value || '').toLowerCase().trim();
+    const all = await Library.list(); const t = $('#libT', b); if (!t) return;
+    const list = all.filter((x) => !q || `${x.name} ${x.folder || ''}`.toLowerCase().includes(q));
+    const tot = all.reduce((s, x) => s + (x.size || 0), 0);
+    $('#libUse', b).textContent = `${all.length} files · ${(tot / 1048576).toFixed(1)} MB.`;
+    t.innerHTML = '';
+    if (!list.length) { t.innerHTML = '<tr><td colspan="4">' + (all.length ? 'No match.' : 'Empty. Drop .nam / .wav files or whole folders on the rig.') + '</td></tr>'; return; }
+    const groups = new Map(); for (const x of list) { const f = x.folder || ''; if (!groups.has(f)) groups.set(f, []); groups.get(f).push(x); }
+    for (const f of [...groups.keys()].sort((a, c) => (a === '' ? -1 : c === '' ? 1 : natural.compare(a, c)))) {
+      const items = groups.get(f).sort((x, y) => natural.compare(x.name, y.name));
+      const hr = document.createElement('tr');
+      hr.innerHTML = `<th colspan="3"></th><th style="text-align:right">${items.length > 1 ? '<button class="btn">DELETE FOLDER</button>' : ''}</th>`;
+      hr.children[0].textContent = (f ? '📁 ' + f : 'Loose files') + ` · ${items.length}`;
+      const fb = hr.querySelector('button'); if (fb) fb.onclick = async () => { if (confirm(`Delete ${items.length} files in "${f || 'Loose files'}"?`)) { for (const x of items) await Library.del(x.id); render(); } };
+      t.appendChild(hr);
+      for (const x of items) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${x.kind === 'nam' ? 'NAM ' + (x.desc?.arch || '') : 'IR'}</td><td></td><td>${((x.size || 0) / 1024).toFixed(0)} KB</td><td style="text-align:right"><button class="btn">✕</button></td>`;
+        tr.children[1].textContent = x.name;
+        tr.querySelector('button').onclick = async () => { await Library.del(x.id); render(); };
+        t.appendChild(tr);
+      }
     }
-    if (!list.length) t.innerHTML += '<tr><td colspan="4">Empty. Drop .nam / .wav files on the rig.</td></tr>';
   };
+  $('#libQ', b).oninput = render;
   render();
 }
-
 async function openAudio() {
   const b = modal(`<h2>AUDIO SETTINGS</h2>
     <label>Input device <select id="aIn"></select></label>
@@ -567,7 +668,7 @@ function openHelp() {
   <h3>SIGNAL CHAIN</h3>
   <p>Gate → Compressor → Drive → NAM pedal → NAM amp → EQ → Cab IR → Clean blend (crossover, align, phase) → Tape delay → Reverb → Master + safety limiter.</p>
   <h3>KEYS</h3>
-  <p><kbd>1</kbd>–<kbd>9</kbd> blocks · <kbd>←</kbd> <kbd>→</kbd> presets · <kbd>T</kbd> tap · <kbd>U</kbd> tuner · <kbd>B</kbd> bypass · <kbd>L</kbd> MIDI learn · <kbd>Esc</kbd> close</p>
+  <p><kbd>1</kbd>–<kbd>9</kbd> blocks · <kbd>←</kbd> <kbd>→</kbd> presets · <kbd>[</kbd> <kbd>]</kbd> amp models · <kbd>,</kbd> <kbd>.</kbd> cab IRs · <kbd>T</kbd> tap · <kbd>U</kbd> tuner · <kbd>B</kbd> bypass · <kbd>L</kbd> MIDI learn · <kbd>Esc</kbd> close</p>
   <p class="note">Code and issues: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener" style="color:var(--gold)">github.com/MassimoDanieli/profondo</a></p>`);
 }
 
@@ -713,10 +814,10 @@ function init() {
   $$('.drop').forEach((el) => {
     el.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.add('dragover'); });
     el.addEventListener('dragleave', () => el.classList.remove('dragover'));
-    el.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('dragover'); const f = e.dataTransfer.files[0]; if (f) addFile(f, el.dataset.drop); });
+    el.addEventListener('drop', async (e) => { e.preventDefault(); e.stopPropagation(); el.classList.remove('dragover'); const files = await droppedEntries(e.dataTransfer); if (files.length) importFiles(files, el.dataset.drop); });
   });
   document.addEventListener('dragover', (e) => e.preventDefault());
-  document.addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) addFile(f, /\.nam$/i.test(f.name) ? 'amp' : 'cab'); });
+  document.addEventListener('drop', async (e) => { e.preventDefault(); const files = await droppedEntries(e.dataTransfer); if (files.length) importFiles(files, files.some((x) => NAM_RE.test(x.file.name)) ? 'amp' : 'cab'); });
 
   $('#btnStart').onclick = start;
   $('#btnSave').onclick = savePreset; $('#btnSaveAs').onclick = savePresetAs; $('#btnPresets').onclick = openPresets;
@@ -732,6 +833,8 @@ function init() {
     else if (k === 'arrowleft') doAction('a:prev'); else if (k === 'arrowright') doAction('a:next');
     else if (k === 't') doAction('a:tap'); else if (k === 'u') doAction('a:tuner'); else if (k === 'b') doAction('a:bypass');
     else if (k === 'l') toggleLearn();
+    else if (e.key === '[' || e.key === ']') doAction(e.key === ']' ? 'a:amp-next' : 'a:amp-prev');
+    else if (e.key === ',' || e.key === '.') doAction(e.key === '.' ? 'a:cab-next' : 'a:cab-prev');
     else if (k === 'escape') { closeModal(); closeMenu(); if (state.tunerOpen) toggleTuner(); if (state.learn) toggleLearn(); }
     else return;
     e.preventDefault();
@@ -740,6 +843,6 @@ function init() {
   renderAll(); markMapped();
   if (sess) { state.dirty = !!sess.dirty; renderPresetName(); }
   if (midi.maps.length && midi.supported) LS.set('midi.auto', true);
-  window.__profondo = { state, get engine() { return engine; }, setParam, recall, addFile, midi };
+  window.__profondo = { state, get engine() { return engine; }, setParam, recall, addFile, importFiles, midi, Library };
 }
 init();
