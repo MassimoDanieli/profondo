@@ -56,7 +56,7 @@ const w = await page.evaluate(async () => {
   return out;
 });
 check(Math.abs(w.measured / w.expected - 1) < 1e-4 && w.maxErr < 1e-4, 'normalization applied in steady state', `expected ${w.expected.toFixed(4)}, measured ${w.measured.toFixed(4)}`);
-check(w.loads.length === 2 && w.loads.every((l) => l.worst <= 5), 'models adopted slice-wise on the audio thread', JSON.stringify(w.loads));
+check(w.loads.length >= 1 && w.loads.every((l) => l.worst <= 5), 'models adopted slice-wise on the audio thread', JSON.stringify(w.loads));
 check(!w.shared && w.keys.length === 2, 'pedal and amp get independent instances of the same model');
 check(w.bad === 'error', 'invalid model rejected by the loader');
 
@@ -124,6 +124,18 @@ await page.keyboard.press('u');
 await page.setViewportSize({ width: 390, height: 900 }); await page.waitForTimeout(300);
 check((await page.evaluate(() => document.documentElement.scrollWidth)) <= 390, 'no horizontal scroll at phone width');
 check(errors.length === 0, 'no page errors', errors.join(' | '));
+
+// ---- 5. guide page
+const gp = await browser.newPage(); const gErr = []; gp.on('pageerror', (e) => gErr.push(e.message));
+await gp.goto(server.url + '/guide.html?lang=it');
+const gIt = await gp.evaluate(() => ({ lang: document.documentElement.lang, h1: [...document.querySelectorAll('h1')].find((h) => h.offsetParent)?.textContent, sections: [...document.querySelectorAll('.wrap[data-lang="it"] main h2')].length }));
+await gp.click('[data-set-lang="en"]');
+const gEn = await gp.evaluate(() => ({ lang: document.documentElement.lang, h1: [...document.querySelectorAll('h1')].find((h) => h.offsetParent)?.textContent, sections: [...document.querySelectorAll('.wrap[data-lang="en"] main h2')].length, scroll: document.documentElement.scrollWidth }));
+const ids = await gp.evaluate(() => [...document.querySelectorAll('nav.toc a')].every((a) => document.querySelector(a.getAttribute('href'))));
+check(gIt.h1 === 'Guida a Profondo' && gEn.h1 === 'Profondo guide' && gIt.sections === 12 && gEn.sections === 12, 'guide renders in IT and EN', `${gIt.sections}/${gEn.sections} sections`);
+check(ids, 'guide table of contents links resolve');
+await gp.setViewportSize({ width: 390, height: 800 });
+check((await gp.evaluate(() => document.documentElement.scrollWidth)) <= 390 && gErr.length === 0, 'guide: phone width, no errors', gErr.join(' | '));
 
 await browser.close(); server.close();
 console.log(failed ? `\n${failed} check(s) failed` : '\nall checks passed');

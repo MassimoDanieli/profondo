@@ -1,0 +1,520 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Profondo · Guida / Guide</title>
+<meta name="description" content="Profondo user guide: audio setup, NAM models, the rig block by block, clean blend and alignment, presets, MIDI, tuner, troubleshooting.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23d9b45a'/%3E%3Ccircle cx='32' cy='32' r='18' fill='%23222'/%3E%3Crect x='30' y='14' width='4' height='14' rx='2' fill='%23d9b45a'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Yellowtail&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #17171a; --panel: #1f1f23; --line: #34343a; --text: #e9e3d3; --muted: #a39d90;
+  --gold: #d9b45a; --gold2: #b8923a; --goldtxt: #3b2d10; --lcd: #120d06; --lcdtxt: #f0a640; --red: #ff6a5a; --green: #5ad68a;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system, 'Segoe UI', Roboto, sans-serif; }
+a { color: var(--gold); }
+code, kbd { font-family: var(--mono); font-size: .86em; }
+code { background: #2a2a30; padding: 1px 5px; border-radius: 4px; }
+kbd { background: #2c2c31; border: 1px solid #45454c; border-bottom-width: 2px; border-radius: 4px; padding: 0 6px; color: var(--text); }
+
+.top { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 16px; padding: 10px 16px; background: #141416ee; backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.logo { font-family: 'Yellowtail', 'Brush Script MT', cursive; font-size: 32px; line-height: 1; color: #fff; text-decoration: none; }
+.top .sub { font-family: var(--mono); font-size: 11px; letter-spacing: 2px; color: var(--muted); }
+.top .sp { flex: 1; }
+.btn { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; text-decoration: none; color: var(--goldtxt); background: linear-gradient(#e3c06a, var(--gold2)); border: 1px solid #4a3a18; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+.seg { display: inline-flex; border: 1px solid #45454c; border-radius: 20px; padding: 2px; background: #151517; }
+.seg button { border: 0; background: none; color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: 1.5px; padding: 5px 11px; border-radius: 16px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--gold); color: var(--goldtxt); }
+
+.wrap { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; max-width: 1180px; margin: 0 auto; padding: 28px 16px 80px; }
+nav.toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 100px); overflow: auto; font-size: 14px; }
+nav.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+nav.toc li { counter-increment: s; }
+nav.toc a { display: block; padding: 5px 10px; border-left: 2px solid var(--line); color: var(--muted); text-decoration: none; }
+nav.toc a::before { content: counter(s, decimal-leading-zero) '  '; font-family: var(--mono); font-size: 11px; color: #6d685d; }
+nav.toc a:hover, nav.toc a.on { color: var(--text); border-left-color: var(--gold); }
+
+main { min-width: 0; }
+h1 { font-size: 34px; line-height: 1.2; margin: 0 0 8px; }
+.lead { color: var(--muted); font-size: 18px; margin: 0 0 28px; }
+h2 { font-family: var(--mono); font-size: 15px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold); margin: 52px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+h3 { font-size: 17px; margin: 26px 0 8px; }
+p, li { max-width: 72ch; }
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+.steps { counter-reset: st; list-style: none; padding: 0; }
+.steps > li { counter-increment: st; position: relative; padding: 10px 14px 10px 54px; margin: 8px 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; max-width: none; }
+.steps > li::before { content: counter(st); position: absolute; left: 14px; top: 10px; width: 26px; height: 26px; border-radius: 50%; background: var(--gold); color: var(--goldtxt); font: 600 13px/26px var(--mono); text-align: center; }
+.note, .warn, .tip { border-radius: 8px; padding: 12px 16px; margin: 14px 0; max-width: 72ch; border: 1px solid; }
+.note { background: #1c2230; border-color: #2e3a55; }
+.tip { background: #1b2a20; border-color: #2f5a3d; }
+.warn { background: #2e1d1a; border-color: #6b3328; }
+.note b:first-child, .tip b:first-child, .warn b:first-child { font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--mono); font-size: 12px; letter-spacing: 1.5px; color: var(--muted); font-weight: 400; }
+td:first-child { white-space: nowrap; font-family: var(--mono); font-size: 13px; color: var(--lcdtxt); }
+.scroll { overflow-x: auto; }
+.chain { display: flex; flex-wrap: wrap; align-items: center; row-gap: 2px; font-family: var(--mono); font-size: 13px; background: var(--lcd); color: var(--lcdtxt); border: 1px solid #000; border-radius: 8px; padding: 14px 16px; line-height: 2; box-shadow: inset 0 0 14px #000; }
+.chain span { white-space: nowrap; }
+.chain i { color: #8a6a3a; font-style: normal; padding: 0 4px; }
+.faq dt { font-weight: 600; margin-top: 16px; }
+.faq dd { margin: 4px 0 0; color: #d4cebf; max-width: 72ch; }
+footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; }
+
+[data-lang] { display: none; }
+html[lang="it"] [data-lang="it"], html[lang="en"] [data-lang="en"] { display: block; }
+html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { display: grid; }
+
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: 1fr; gap: 0; padding-top: 16px; }
+  nav.toc { position: static; max-height: none; margin-bottom: 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  .top .sub { display: none; }
+  h1 { font-size: 27px; }
+  td:first-child { white-space: normal; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="logo" href="./">Profondo</a>
+  <span class="sub">GUIDA · GUIDE</span>
+  <span class="sp"></span>
+  <div class="seg" role="group" aria-label="Language">
+    <button type="button" data-set-lang="it" aria-pressed="true">IT</button>
+    <button type="button" data-set-lang="en" aria-pressed="false">EN</button>
+  </div>
+  <a class="btn" href="./">▶ <span data-lang="it" style="display:inline">APRI</span><span data-lang="en">OPEN</span></a>
+</header>
+
+<!-- ======================================================= ITALIANO -->
+<div class="wrap" data-lang="it">
+<nav class="toc"><ol>
+  <li><a href="#it-start">Partenza rapida</a></li>
+  <li><a href="#it-need">Cosa serve</a></li>
+  <li><a href="#it-audio">Impostare l'audio</a></li>
+  <li><a href="#it-models">Modelli NAM e IR</a></li>
+  <li><a href="#it-rig">Il rig, blocco per blocco</a></li>
+  <li><a href="#it-blend">Blend pulito e allineamento</a></li>
+  <li><a href="#it-presets">Preset</a></li>
+  <li><a href="#it-midi">MIDI e pedaliera</a></li>
+  <li><a href="#it-keys">Tastiera</a></li>
+  <li><a href="#it-tuner">Accordatore</a></li>
+  <li><a href="#it-trouble">Problemi e soluzioni</a></li>
+  <li><a href="#it-privacy">Privacy e crediti</a></li>
+</ol></nav>
+<main>
+<h1>Guida a Profondo</h1>
+<p class="lead">Un rig per basso basato su Neural Amp Modeler, che gira nel browser: catture NAM di ampli e pedali, cassa IR, blend pulito, delay, riverbero e MIDI.</p>
+
+<h2 id="it-start">Partenza rapida</h2>
+<ol class="steps">
+  <li>Collega il basso all'<b>ingresso strumento</b> (Hi-Z / INST) della scheda audio e metti le <b>cuffie</b>.</li>
+  <li>Apri <a href="./">profondo.massimodanieli.com</a> in <b>Chrome</b> o <b>Edge</b> e premi <b>▶ START AUDIO</b>. Quando il browser lo chiede, consenti l'accesso al microfono/ingresso audio.</li>
+  <li>Se non senti nulla, apri <b>AUDIO</b> (in basso) e scegli la scheda come ingresso e uscita, e il canale giusto (1 o 2).</li>
+  <li>Scarica una cattura <code>.nam</code> da <a href="https://www.tone3000.com" target="_blank" rel="noopener">TONE3000</a> e <b>trascinala sul display dell'ampli</b>. Per la cassa, trascina un <code>.wav</code> sul display CAB IR, oppure usa una delle casse integrate.</li>
+  <li>Regola, poi <b>SAVE</b> per salvare il preset. Fatto.</li>
+</ol>
+<div class="tip"><b>CONSIGLIO</b> Senza nessun modello caricato Profondo usa un ampli valvolare integrato: puoi provare tutta la catena subito.</div>
+
+<h2 id="it-need">Cosa serve</h2>
+<ul>
+  <li><b>Browser:</b> Chrome o Edge (consigliati: audio, MIDI e scelta dell'uscita). Firefox funziona, MIDI compreso. Safari fa suonare il rig ma non ha il MIDI.</li>
+  <li><b>Scheda audio</b> con ingresso strumento. Il microfono del computer va bene solo per provare.</li>
+  <li><b>Cuffie o monitor</b> a volume basso all'avvio.</li>
+  <li><b>Sistema:</b> macOS, Windows o Linux. Un Mac con Apple Silicon o un PC recente regge tranquillamente pedale + ampli NAM.</li>
+  <li>Niente installazioni: tutto gira nel browser. Puoi anche usarlo offline dallo zip della <a href="https://github.com/MassimoDanieli/profondo/releases" target="_blank" rel="noopener">release</a> (doppio clic su <code>Avvia Profondo (Mac).command</code>).</li>
+</ul>
+
+<h2 id="it-audio">Impostare l'audio</h2>
+<h3>Frequenza di campionamento: 48 kHz</h3>
+<p>Le catture NAM sono addestrate quasi sempre a 48 kHz e Profondo gira a 48 kHz.</p>
+<ul>
+  <li><b>Mac:</b> apri <i>Configurazione MIDI Audio</i> (Applicazioni → Utility), seleziona la scheda e imposta <b>48.000 Hz</b> sia in ingresso sia in uscita.</li>
+  <li><b>Windows:</b> Impostazioni audio → proprietà del dispositivo → Avanzate → <b>48000 Hz</b>. Se il pannello della scheda ha una modalità a bassa latenza, attivala.</li>
+</ul>
+<h3>Il pannello AUDIO</h3>
+<div class="scroll"><table>
+  <tr><th>Voce</th><th>A cosa serve</th></tr>
+  <tr><td>Input device</td><td>La scheda audio da cui arriva il basso.</td></tr>
+  <tr><td>Input channel</td><td>Canale 1 o 2 della scheda: scegli quello dove è collegato il basso.</td></tr>
+  <tr><td>Output device</td><td>Dove ascolti (Chrome/Edge). Con "System default" segue il sistema.</td></tr>
+  <tr><td>Input trim</td><td>Livello d'ingresso. Regolalo perché la barra <b>IN</b> arrivi al giallo solo sulle note più forti.</td></tr>
+  <tr><td>Engine rate</td><td>48 kHz di serie. Cambialo solo se usi catture addestrate a 44,1 o 96 kHz. Ricarica la pagina.</td></tr>
+  <tr><td>Status</td><td>Frequenza, canali e <b>latenza stimata</b> del sistema.</td></tr>
+</table></div>
+<h3>Latenza</h3>
+<p>Il browser aggiunge un po' di latenza rispetto a un'app nativa. Per tenerla bassa:</p>
+<ul>
+  <li>Usa la scheda audio, non l'audio integrato o il Bluetooth (le cuffie Bluetooth aggiungono 100–200 ms).</li>
+  <li>Su Mac, Chrome segue il buffer di sistema: buffer piccoli = latenza bassa. Chiudi le altre app audio.</li>
+  <li><b>Disattiva il monitoraggio diretto</b> della scheda se vuoi sentire solo il suono del rig (altrimenti senti anche il basso pulito).</li>
+</ul>
+
+<h2 id="it-models">Modelli NAM e IR</h2>
+<h3>Dove trovarli</h3>
+<p>Su <a href="https://www.tone3000.com" target="_blank" rel="noopener">TONE3000</a> cerca "bass": trovi catture di ampli, pedali e IR di casse. Scarica il file <code>.nam</code> (o il <code>.wav</code> per le IR).</p>
+<h3>Dove caricarli</h3>
+<div class="scroll"><table>
+  <tr><th>File</th><th>Dove</th></tr>
+  <tr><td>.nam ampli</td><td>Trascinalo sul display <b>NAM · AMP</b> in alto, oppure LOAD. (Trascinato in un punto qualsiasi della pagina va all'ampli.)</td></tr>
+  <tr><td>.nam pedale</td><td>Trascinalo sul pedale viola <b>NAM PEDAL</b>, oppure il suo LOAD. Si accende da solo.</td></tr>
+  <tr><td>.wav cassa</td><td>Sul display <b>CAB IR</b>. Viene usata la prima parte (fino a 0,25 s).</td></tr>
+  <tr><td>.wav riverbero</td><td>Sul riquadro <b>ROOM IR</b> del riverbero (fino a 10 s, mono o stereo).</td></tr>
+</table></div>
+<ul>
+  <li>Ogni file caricato finisce nella <b>libreria</b> del browser: lo ritrovi nel menu ▾ (MODELS, CABS, ROOM) senza ricaricarlo. "Manage library…" per cancellarli.</li>
+  <li>Il display mostra frequenza, architettura (WaveNet, LSTM, A2) e loudness del modello.</li>
+  <li><b>NORMALIZE</b> (in basso, acceso di serie) porta ogni cattura allo stesso volume usando i dati di loudness del file: cambiando modello non hai salti di volume.</li>
+  <li>Il caricamento avviene "dietro le quinte" e il passaggio tra due modelli è una dissolvenza: puoi cambiare mentre suoni.</li>
+  <li>Il simbolo <b>⚠</b> accanto alla frequenza vuol dire che la cattura è stata addestrata a una frequenza diversa dal motore: suona, ma con il timbro leggermente spostato. Vedi <i>Engine rate</i>.</li>
+</ul>
+<div class="note"><b>CASSE E STANZE INTEGRATE</b> 8x10 Classic, 4x10 Modern, 1x15 Vintage, 2x12 Mid Punch, Full range; stanze Small Room, Studio Live, Plate, Concert Hall, Dub Chamber. Sono sintetizzate, non copiate da prodotti esistenti.</div>
+
+<h2 id="it-rig">Il rig, blocco per blocco</h2>
+<div class="chain">
+  <span>basso</span><i>→</i><span>GATE</span><i>→</i><span>COMP</span><i>→</i><span>DRIVE</span><i>→</i><span>NAM PEDAL</span><i>→</i><span>NAM AMP</span><i>→</i><span>EQ</span><i>→</i><span>CAB</span><i>⇄</i><span>CLEAN BLEND</span><i>→</i><span>DELAY</span><i>→</i><span>REVERB</span><i>→</i><span>MASTER + limiter</span>
+</div>
+<p>Ogni blocco si accende con il suo interruttore (il pulsante tondo sui pedali, ON sugli effetti) o con i pulsanti dorati in basso. Le manopole: <b>trascina in su/giù</b>, rotella del mouse, <kbd>Shift</kbd> per la regolazione fine, <b>doppio clic</b> per tornare al valore di partenza.</p>
+<div class="scroll"><table>
+  <tr><th>Blocco</th><th>Controlli e consigli</th></tr>
+  <tr><td>GATE</td><td><b>THRESH</b> soglia sotto cui il suono si chiude, <b>RELEASE</b> quanto velocemente. Utile con ampli molto saturi; abbassa la soglia finché il fruscio sparisce senza tagliare le code delle note.</td></tr>
+  <tr><td>COMP</td><td><b>SUSTAIN</b> quanto comprime (soglia e rapporto insieme), <b>ATTACK</b> lento = lascia passare l'attacco della nota, <b>LEVEL</b>, <b>BLEND</b> per la compressione parallela. GR mostra di quanto sta comprimendo.</td></tr>
+  <tr><td>DRIVE</td><td>Overdrive pensato per il basso: <b>GAIN</b>, <b>TONE</b>, <b>LEVEL</b> e <b>BLEND</b> col segnale pulito, così le basse restano piene.</td></tr>
+  <tr><td>NAM PEDAL</td><td>Una cattura di pedale (overdrive, fuzz, preamp). <b>INPUT</b> quanto lo "spingi", <b>LEVEL</b> il volume in uscita.</td></tr>
+  <tr><td>NAM AMP</td><td>La cattura principale. <b>GAIN</b> (sezione INPUT) quanto spingi l'ampli: sulle catture è il controllo più importante. <b>AMP OUT</b> il livello dopo il modello.</td></tr>
+  <tr><td>EQ</td><td><b>BASS</b> 80 Hz, <b>LOW MID</b> 250 Hz, <b>MID</b> con <b>MID FREQ</b> regolabile (200 Hz – 3 kHz), <b>TREBLE</b> 2,5 kHz, <b>PRESENCE</b> 5,5 kHz.</td></tr>
+  <tr><td>CAB</td><td>La IR della cassa e il suo <b>LEVEL</b>. Spegnila se la cattura include già la cassa ("full rig") o se vai in un impianto che ne ha una.</td></tr>
+  <tr><td>TAPE DELAY</td><td><b>TIME</b> (o SYNC al tempo con suddivisioni e TAP), <b>FEEDBACK</b>, <b>LEVEL</b>, <b>HIGH ROLL</b> scurisce le ripetizioni, <b>LOW CUT</b> le toglie dalle basse (prova 120–200 Hz), <b>WOW</b> oscillazione da nastro, <b>WIDTH</b> apertura stereo, <b>PING-PONG</b> alterna sinistra/destra. Spegnendolo le ripetizioni finiscono naturalmente.</td></tr>
+  <tr><td>REVERB</td><td>IR della stanza, <b>LEVEL</b>, <b>PRE-DELAY</b>, <b>HIGH ROLL</b>, <b>LOW CUT</b> (sul basso tienilo alto, 150–300 Hz, per non impastare).</td></tr>
+  <tr><td>MASTER</td><td><b>OUTPUT</b> volume generale. Dopo c'è un limiter di sicurezza che evita picchi distruttivi.</td></tr>
+  <tr><td>BYPASS</td><td>Segnale pulito diretto, tutto il rig escluso. Utile per confrontare.</td></tr>
+</table></div>
+<p>In basso: <b>IN</b> e <b>OUT</b> sono i livelli; <b>DSP</b> è quanto lavora il motore NAM (sopra il 70% diventa rosso: rischio di crepitii).</p>
+
+<h2 id="it-blend">Blend pulito e allineamento</h2>
+<p>Il blend mescola il <b>DI pulito</b> (dopo il compressore) con il suono di <b>ampli + cassa</b>: è il trucco classico per avere un basso saturo ma con fondamentali piene.</p>
+<ul>
+  <li><b>BLEND</b>: 0% solo ampli, 100% solo pulito.</li>
+  <li><b>X-OVER</b> (OFF o 30–400 Hz): con il crossover acceso, l'ampli suona solo sopra quella frequenza e sotto entra il pulito, dosato da BLEND. Prova 120–180 Hz.</li>
+  <li><b>ALIGN</b> (0–20 ms) ritarda il pulito; <b>Ø PHASE</b> ne inverte la polarità.</li>
+</ul>
+<h3>Perché allineare</h3>
+<p>Catture e IR ritardano un po' il segnale e a volte lo invertono. Sommato al pulito non allineato, il basso perde corpo proprio sulle frequenze basse (cancellazioni di fase).</p>
+<ol class="steps">
+  <li>Accendi l'ampli e la cassa che vuoi usare e porta BLEND intorno al 50%.</li>
+  <li>Premi <b>AUTO</b> e suona qualche nota bassa per 2 secondi.</li>
+  <li>Profondo misura ritardo e polarità e imposta ALIGN e Ø PHASE. Il messaggio indica anche l'affidabilità della misura.</li>
+</ol>
+<div class="tip"><b>CONSIGLIO</b> Rifai AUTO quando cambi cattura o cassa. Se la misura non è affidabile, prova con l'ampli meno saturo, oppure regola ALIGN a orecchio: dove il basso suona più pieno.</div>
+
+<h2 id="it-presets">Preset</h2>
+<ul>
+  <li><b>◀ ▶</b> scorrono i preset; il nome con <b>*</b> vuol dire modifiche non salvate.</li>
+  <li><b>SAVE</b> sovrascrive il preset attuale, <b>SAVE AS</b> ne crea uno nuovo. Clic sul nome per rinominarlo.</li>
+  <li>Un preset ricorda tutte le manopole, i blocchi accesi, i modelli NAM di pedale e ampli, la cassa e la stanza.</li>
+  <li><b>PRESETS</b> apre l'elenco: carica, sposta, rinomina, elimina.</li>
+  <li><b>EXPORT BANK</b> salva tutti i preset in un file <code>.json</code>; con "include model &amp; IR files" dentro ci sono anche i modelli: è il modo per fare un backup o passare tutto su un altro computer. <b>IMPORT</b> lo ricarica.</li>
+  <li>I modelli usati dai preset vengono pre-caricati all'avvio: cambiare preset (anche via MIDI) è immediato.</li>
+</ul>
+<div class="warn"><b>ATTENZIONE</b> Preset e libreria vivono nel browser. Cancellando i dati del sito, o in una finestra privata, si perdono: esporta il banco ogni tanto.</div>
+
+<h2 id="it-midi">MIDI e pedaliera</h2>
+<ol class="steps">
+  <li>Collega la pedaliera o il controller (USB, Bluetooth MIDI o MIDI di rete) <b>prima</b> di aprire la pagina, oppure ricaricala dopo.</li>
+  <li>Apri <b>MIDI</b> → <b>ENABLE MIDI</b> e consenti l'accesso. Nel riquadro MONITOR vedi i messaggi che arrivano.</li>
+  <li>Premi <b>LEARN</b>: i controlli assegnabili si evidenziano. Clicca quello che vuoi (manopola, interruttore, ◀ ▶, TAP, TUNER, BYPASS, AUTO…) e muovi o premi il controller. Fatto: un puntino blu indica che è assegnato.</li>
+  <li>Premi di nuovo LEARN (o <kbd>Esc</kbd>) per uscire.</li>
+</ol>
+<div class="scroll"><table>
+  <tr><th>Funzione</th><th>Come</th></tr>
+  <tr><td>Program Change</td><td>PC 0 = preset 01, PC 1 = preset 02… Attivo di serie, non serve impararlo.</td></tr>
+  <tr><td>Pedale d'espressione</td><td>LEARN su una manopola (wah di volume, gain, mix del delay…) e muovi il pedale: segue tutta la corsa.</td></tr>
+  <tr><td>Interruttori</td><td><b>press</b>: ogni pressione accende/spegne (per footswitch momentanei). <b>latch</b>: segue il valore, ≥64 = acceso (per footswitch che mandano 127/0 alternati). Si sceglie nella tabella MAPPINGS.</td></tr>
+  <tr><td>Tap tempo</td><td>LEARN sul pulsante TAP e assegnalo a un footswitch.</td></tr>
+  <tr><td>MIDI clock</td><td>Spunta "Follow MIDI clock": il delay in SYNC segue il tempo della drum machine o della DAW.</td></tr>
+  <tr><td>Canale</td><td>Omni (tutti) oppure un canale 1–16.</td></tr>
+  <tr><td>Cancellare</td><td>In LEARN, <b>clic destro</b> sul controllo; oppure ✕ nella tabella MAPPINGS.</td></tr>
+</table></div>
+<p>Le assegnazioni valgono per tutti i preset e restano salvate. Niente pedaliera? Usa la tastiera del computer (sezione successiva), un'app come TouchOSC sul telefono via MIDI di rete (Mac: Configurazione MIDI Audio → Rete), oppure un footswitch economico USB/Bluetooth.</p>
+
+<h2 id="it-keys">Tastiera</h2>
+<div class="scroll"><table>
+  <tr><th>Tasto</th><th>Azione</th></tr>
+  <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Accende/spegne gate, comp, drive, pedale, ampli, EQ, cassa, delay, riverbero</td></tr>
+  <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Preset precedente / successivo</td></tr>
+  <tr><td><kbd>T</kbd></td><td>Tap tempo</td></tr>
+  <tr><td><kbd>U</kbd></td><td>Accordatore</td></tr>
+  <tr><td><kbd>B</kbd></td><td>Bypass</td></tr>
+  <tr><td><kbd>L</kbd></td><td>MIDI learn</td></tr>
+  <tr><td><kbd>Esc</kbd></td><td>Chiude finestre, accordatore e learn</td></tr>
+</table></div>
+
+<h2 id="it-tuner">Accordatore</h2>
+<p><b>TUNER</b> (o <kbd>U</kbd>) apre l'accordatore. Legge il segnale pulito, funziona dal Si basso del 5 corde in su. La nota diventa verde entro ±3 cent. "Mute while tuning" ammutolisce l'uscita mentre accordi; puoi cambiare il La di riferimento (A4, di serie 440 Hz).</p>
+
+<h2 id="it-trouble">Problemi e soluzioni</h2>
+<dl class="faq">
+  <dt>Non sento niente.</dt>
+  <dd>Controlla in AUDIO ingresso, canale e uscita; guarda la barra IN mentre suoni. Verifica che BYPASS e il volume OUTPUT non siano a zero e che il browser abbia il permesso del microfono (icona nella barra dell'indirizzo).</dd>
+  <dt>Sento il basso pulito "sotto" il suono del rig.</dt>
+  <dd>È il monitoraggio diretto della scheda audio: spegnilo (pulsante o mix DIRECT sulla scheda).</dd>
+  <dt>Crepitii o interruzioni.</dt>
+  <dd>Guarda DSP in basso: se è alto, togli il pedale NAM o usa catture più leggere ("lite", "feather"), chiudi altre schede e app. Su portatile, collega l'alimentazione.</dd>
+  <dt>Troppa latenza.</dt>
+  <dd>Niente Bluetooth; usa la scheda audio a 48 kHz con buffer piccolo. Lo Status nel pannello AUDIO indica la stima.</dd>
+  <dt>Il suono fischia o rientra.</dt>
+  <dd>Stai usando il microfono del computer con gli altoparlanti: usa le cuffie o la scheda audio.</dd>
+  <dt>Un modello non si carica.</dt>
+  <dd>Controlla che sia un <code>.nam</code> valido (non uno zip). Il messaggio indica il motivo; il modello precedente resta attivo.</dd>
+  <dt>Vedo ⚠ accanto alla frequenza.</dt>
+  <dd>Cattura addestrata a un'altra frequenza: imposta <i>Engine rate</i> in AUDIO alla stessa frequenza (e la scheda audio uguale).</dd>
+  <dt>Il pulsante MIDI non trova niente.</dt>
+  <dd>Safari non supporta il MIDI: usa Chrome, Edge o Firefox. Collega il controller e ricarica la pagina.</dd>
+  <dt>Ho perso preset e modelli.</dt>
+  <dd>Probabilmente sono stati cancellati i dati del sito o eri in navigazione privata. Reimporta l'ultimo EXPORT BANK.</dd>
+</dl>
+
+<h2 id="it-privacy">Privacy e crediti</h2>
+<ul>
+  <li>Il suono non lascia mai il tuo computer: tutta l'elaborazione avviene nel browser. Modelli, IR e preset restano salvati nel browser, non vengono caricati da nessuna parte.</li>
+  <li>Motore: <a href="https://github.com/sdatkinson/NeuralAmpModelerCore" target="_blank" rel="noopener">NeuralAmpModelerCore</a> di Steven Atkinson (MIT), compilato in WebAssembly; Eigen (MPL-2.0); nlohmann/json (MIT).</li>
+  <li>Le catture che scarichi appartengono ai loro autori: rispetta le loro licenze.</li>
+  <li>Codice, segnalazioni e idee: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener">github.com/MassimoDanieli/profondo</a>.</li>
+</ul>
+<footer>Profondo · MIT License · Massimo Danieli</footer>
+</main>
+</div>
+
+<!-- ======================================================= ENGLISH -->
+<div class="wrap" data-lang="en">
+<nav class="toc"><ol>
+  <li><a href="#en-start">Quick start</a></li>
+  <li><a href="#en-need">What you need</a></li>
+  <li><a href="#en-audio">Audio setup</a></li>
+  <li><a href="#en-models">NAM models and IRs</a></li>
+  <li><a href="#en-rig">The rig, block by block</a></li>
+  <li><a href="#en-blend">Clean blend and alignment</a></li>
+  <li><a href="#en-presets">Presets</a></li>
+  <li><a href="#en-midi">MIDI and footswitches</a></li>
+  <li><a href="#en-keys">Keyboard</a></li>
+  <li><a href="#en-tuner">Tuner</a></li>
+  <li><a href="#en-trouble">Troubleshooting</a></li>
+  <li><a href="#en-privacy">Privacy and credits</a></li>
+</ol></nav>
+<main>
+<h1>Profondo guide</h1>
+<p class="lead">A Neural Amp Modeler bass rig that runs in the browser: NAM amp and pedal captures, cab IR, clean blend, delay, reverb and MIDI.</p>
+
+<h2 id="en-start">Quick start</h2>
+<ol class="steps">
+  <li>Plug the bass into the <b>instrument input</b> (Hi-Z / INST) of your audio interface and put on <b>headphones</b>.</li>
+  <li>Open <a href="./">profondo.massimodanieli.com</a> in <b>Chrome</b> or <b>Edge</b> and press <b>▶ START AUDIO</b>. Allow microphone/audio-input access when the browser asks.</li>
+  <li>No sound? Open <b>AUDIO</b> (bottom bar) and pick your interface as input and output, and the right channel (1 or 2).</li>
+  <li>Download a <code>.nam</code> capture from <a href="https://www.tone3000.com" target="_blank" rel="noopener">TONE3000</a> and <b>drop it on the amp display</b>. For the cabinet, drop a <code>.wav</code> on the CAB IR display or use a built-in cab.</li>
+  <li>Dial it in, then <b>SAVE</b> the preset. Done.</li>
+</ol>
+<div class="tip"><b>TIP</b> With no capture loaded, Profondo uses a built-in tube amp, so you can try the whole chain right away.</div>
+
+<h2 id="en-need">What you need</h2>
+<ul>
+  <li><b>Browser:</b> Chrome or Edge (recommended: audio, MIDI and output selection). Firefox works, MIDI included. Safari plays the rig but has no MIDI.</li>
+  <li>An <b>audio interface</b> with an instrument input. The built-in mic is only good for a quick test.</li>
+  <li><b>Headphones or monitors</b>, low volume at first.</li>
+  <li><b>System:</b> macOS, Windows or Linux. An Apple Silicon Mac or a recent PC easily runs a NAM pedal + amp.</li>
+  <li>Nothing to install. To use it offline, download the zip from the <a href="https://github.com/MassimoDanieli/profondo/releases" target="_blank" rel="noopener">releases</a> and double-click <code>Avvia Profondo (Mac).command</code> (Windows: the <code>.bat</code>).</li>
+</ul>
+
+<h2 id="en-audio">Audio setup</h2>
+<h3>Sample rate: 48 kHz</h3>
+<p>NAM captures are almost always trained at 48 kHz, and Profondo runs at 48 kHz.</p>
+<ul>
+  <li><b>Mac:</b> open <i>Audio MIDI Setup</i> (Applications → Utilities), select your interface and set <b>48,000 Hz</b> for input and output.</li>
+  <li><b>Windows:</b> Sound settings → device properties → Advanced → <b>48000 Hz</b>. Enable your interface's low-latency mode if it has one.</li>
+</ul>
+<h3>The AUDIO panel</h3>
+<div class="scroll"><table>
+  <tr><th>Setting</th><th>What it does</th></tr>
+  <tr><td>Input device</td><td>The interface the bass comes in from.</td></tr>
+  <tr><td>Input channel</td><td>Interface channel 1 or 2: the one the bass is plugged into.</td></tr>
+  <tr><td>Output device</td><td>Where you listen (Chrome/Edge). "System default" follows the system.</td></tr>
+  <tr><td>Input trim</td><td>Input level. Set it so the <b>IN</b> meter reaches yellow only on your hardest notes.</td></tr>
+  <tr><td>Engine rate</td><td>48 kHz by default. Change it only for captures trained at 44.1 or 96 kHz. Reloads the page.</td></tr>
+  <tr><td>Status</td><td>Sample rate, channels and <b>estimated latency</b>.</td></tr>
+</table></div>
+<h3>Latency</h3>
+<p>A browser adds a little latency compared with a native app. To keep it low:</p>
+<ul>
+  <li>Use the interface, not built-in audio or Bluetooth (Bluetooth headphones add 100–200 ms).</li>
+  <li>On a Mac, Chrome follows the system buffer: smaller buffers mean lower latency. Close other audio apps.</li>
+  <li><b>Turn off direct monitoring</b> on the interface to hear only the rig (otherwise you also hear the dry bass).</li>
+</ul>
+
+<h2 id="en-models">NAM models and IRs</h2>
+<h3>Where to get them</h3>
+<p>On <a href="https://www.tone3000.com" target="_blank" rel="noopener">TONE3000</a> search for "bass": amp and pedal captures and cabinet IRs. Download the <code>.nam</code> file (or the <code>.wav</code> for IRs).</p>
+<h3>Where to load them</h3>
+<div class="scroll"><table>
+  <tr><th>File</th><th>Where</th></tr>
+  <tr><td>.nam amp</td><td>Drop it on the <b>NAM · AMP</b> display at the top, or LOAD. (Dropped anywhere else on the page it goes to the amp.)</td></tr>
+  <tr><td>.nam pedal</td><td>Drop it on the purple <b>NAM PEDAL</b>, or its LOAD. It switches on by itself.</td></tr>
+  <tr><td>.wav cab</td><td>On the <b>CAB IR</b> display. The first 0.25 s is used.</td></tr>
+  <tr><td>.wav reverb</td><td>On the reverb's <b>ROOM IR</b> box (up to 10 s, mono or stereo).</td></tr>
+</table></div>
+<ul>
+  <li>Every file you load goes into the browser <b>library</b>: find it again in the ▾ menus (MODELS, CABS, ROOM). "Manage library…" deletes them.</li>
+  <li>The display shows sample rate, architecture (WaveNet, LSTM, A2) and the model's loudness.</li>
+  <li><b>NORMALIZE</b> (bottom bar, on by default) brings every capture to the same level using its loudness metadata, so switching models doesn't jump in volume.</li>
+  <li>Models load in the background and switching is a crossfade: you can change while playing.</li>
+  <li><b>⚠</b> next to the rate means the capture was trained at a different rate from the engine: it plays, with a slightly shifted tone. See <i>Engine rate</i>.</li>
+</ul>
+<div class="note"><b>BUILT-IN CABS AND ROOMS</b> 8x10 Classic, 4x10 Modern, 1x15 Vintage, 2x12 Mid Punch, Full range; rooms Small Room, Studio Live, Plate, Concert Hall, Dub Chamber. They are synthesized, not copied from existing products.</div>
+
+<h2 id="en-rig">The rig, block by block</h2>
+<div class="chain">
+  <span>bass</span><i>→</i><span>GATE</span><i>→</i><span>COMP</span><i>→</i><span>DRIVE</span><i>→</i><span>NAM PEDAL</span><i>→</i><span>NAM AMP</span><i>→</i><span>EQ</span><i>→</i><span>CAB</span><i>⇄</i><span>CLEAN BLEND</span><i>→</i><span>DELAY</span><i>→</i><span>REVERB</span><i>→</i><span>MASTER + limiter</span>
+</div>
+<p>Each block has its switch (the round footswitch on pedals, ON on effects) or the gold buttons at the bottom. Knobs: <b>drag up/down</b>, mouse wheel, <kbd>Shift</kbd> for fine moves, <b>double-click</b> to reset.</p>
+<div class="scroll"><table>
+  <tr><th>Block</th><th>Controls and tips</th></tr>
+  <tr><td>GATE</td><td><b>THRESH</b> level below which it closes, <b>RELEASE</b> how fast. Useful with high-gain amps; lower the threshold until the hiss goes without cutting note tails.</td></tr>
+  <tr><td>COMP</td><td><b>SUSTAIN</b> amount (threshold and ratio together), slow <b>ATTACK</b> lets the pick attack through, <b>LEVEL</b>, <b>BLEND</b> for parallel compression. GR shows the gain reduction.</td></tr>
+  <tr><td>DRIVE</td><td>Bass-voiced overdrive: <b>GAIN</b>, <b>TONE</b>, <b>LEVEL</b> and <b>BLEND</b> with the clean signal so the lows stay full.</td></tr>
+  <tr><td>NAM PEDAL</td><td>A pedal capture (overdrive, fuzz, preamp). <b>INPUT</b> how hard you hit it, <b>LEVEL</b> its output.</td></tr>
+  <tr><td>NAM AMP</td><td>The main capture. <b>GAIN</b> (INPUT section) drives the amp: with captures it is the most important control. <b>AMP OUT</b> is the level after the model.</td></tr>
+  <tr><td>EQ</td><td><b>BASS</b> 80 Hz, <b>LOW MID</b> 250 Hz, <b>MID</b> with sweepable <b>MID FREQ</b> (200 Hz – 3 kHz), <b>TREBLE</b> 2.5 kHz, <b>PRESENCE</b> 5.5 kHz.</td></tr>
+  <tr><td>CAB</td><td>The cabinet IR and its <b>LEVEL</b>. Turn it off if the capture already includes the cab ("full rig") or the PA has one.</td></tr>
+  <tr><td>TAPE DELAY</td><td><b>TIME</b> (or SYNC to tempo with subdivisions and TAP), <b>FEEDBACK</b>, <b>LEVEL</b>, <b>HIGH ROLL</b> darkens repeats, <b>LOW CUT</b> keeps them out of the low end (try 120–200 Hz), <b>WOW</b> tape wobble, <b>WIDTH</b> stereo spread, <b>PING-PONG</b> alternates left/right. Switching it off lets the echoes ring out.</td></tr>
+  <tr><td>REVERB</td><td>Room IR, <b>LEVEL</b>, <b>PRE-DELAY</b>, <b>HIGH ROLL</b>, <b>LOW CUT</b> (keep it high on bass, 150–300 Hz, to avoid mud).</td></tr>
+  <tr><td>MASTER</td><td><b>OUTPUT</b> overall volume, followed by a safety limiter against harmful peaks.</td></tr>
+  <tr><td>BYPASS</td><td>Dry signal straight through, whole rig off. Handy for comparisons.</td></tr>
+</table></div>
+<p>Bottom bar: <b>IN</b> and <b>OUT</b> are the levels; <b>DSP</b> is the NAM engine load (above 70% it turns red: risk of crackles).</p>
+
+<h2 id="en-blend">Clean blend and alignment</h2>
+<p>The blend mixes the <b>clean DI</b> (after the compressor) with <b>amp + cab</b>: the classic trick for a driven bass with full fundamentals.</p>
+<ul>
+  <li><b>BLEND</b>: 0% amp only, 100% clean only.</li>
+  <li><b>X-OVER</b> (OFF or 30–400 Hz): with the crossover on, the amp only plays above that frequency and the clean DI fills in below it, set by BLEND. Try 120–180 Hz.</li>
+  <li><b>ALIGN</b> (0–20 ms) delays the clean signal; <b>Ø PHASE</b> flips its polarity.</li>
+</ul>
+<h3>Why align</h3>
+<p>Captures and IRs delay the signal a little, and sometimes invert it. Summed with an unaligned clean DI, the bass loses body right in the low end (phase cancellation).</p>
+<ol class="steps">
+  <li>Switch on the amp and cab you want and set BLEND around 50%.</li>
+  <li>Press <b>AUTO</b> and play a few low notes for 2 seconds.</li>
+  <li>Profondo measures delay and polarity and sets ALIGN and Ø PHASE. The message also shows how reliable the measurement is.</li>
+</ol>
+<div class="tip"><b>TIP</b> Run AUTO again when you change capture or cab. If the measurement is unreliable, try with a cleaner amp setting, or set ALIGN by ear: where the bass sounds fullest.</div>
+
+<h2 id="en-presets">Presets</h2>
+<ul>
+  <li><b>◀ ▶</b> step through presets; a <b>*</b> after the name means unsaved changes.</li>
+  <li><b>SAVE</b> overwrites the current preset, <b>SAVE AS</b> creates a new one. Click the name to rename.</li>
+  <li>A preset stores every knob, which blocks are on, the NAM pedal and amp models, the cab and the room.</li>
+  <li><b>PRESETS</b> opens the list: load, move, rename, delete.</li>
+  <li><b>EXPORT BANK</b> saves all presets to a <code>.json</code> file; with "include model &amp; IR files" the models are inside too: that's your backup, or the way to move everything to another computer. <b>IMPORT</b> loads it back.</li>
+  <li>Models used by presets are preloaded at start, so preset changes (MIDI included) are instant.</li>
+</ul>
+<div class="warn"><b>NOTE</b> Presets and the library live in the browser. Clearing site data, or a private window, loses them: export the bank now and then.</div>
+
+<h2 id="en-midi">MIDI and footswitches</h2>
+<ol class="steps">
+  <li>Connect the footswitch or controller (USB, Bluetooth MIDI or network MIDI) <b>before</b> opening the page, or reload afterwards.</li>
+  <li>Open <b>MIDI</b> → <b>ENABLE MIDI</b> and allow access. The MONITOR box shows incoming messages.</li>
+  <li>Press <b>LEARN</b>: assignable controls are outlined. Click the one you want (knob, switch, ◀ ▶, TAP, TUNER, BYPASS, AUTO…) and move or press your controller. A blue dot marks it as mapped.</li>
+  <li>Press LEARN again (or <kbd>Esc</kbd>) to leave.</li>
+</ol>
+<div class="scroll"><table>
+  <tr><th>Feature</th><th>How</th></tr>
+  <tr><td>Program Change</td><td>PC 0 = preset 01, PC 1 = preset 02… On by default, no learning needed.</td></tr>
+  <tr><td>Expression pedal</td><td>LEARN on a knob (volume, gain, delay mix…) and move the pedal: it follows the full travel.</td></tr>
+  <tr><td>Switches</td><td><b>press</b>: every press toggles (momentary footswitches). <b>latch</b>: follows the value, ≥64 = on (footswitches that alternate 127/0). Set it in the MAPPINGS table.</td></tr>
+  <tr><td>Tap tempo</td><td>LEARN on the TAP button and assign a footswitch.</td></tr>
+  <tr><td>MIDI clock</td><td>Tick "Follow MIDI clock": the synced delay follows your drum machine or DAW.</td></tr>
+  <tr><td>Channel</td><td>Omni (all) or a single channel 1–16.</td></tr>
+  <tr><td>Clearing</td><td>In LEARN, <b>right-click</b> the control; or ✕ in the MAPPINGS table.</td></tr>
+</table></div>
+<p>Mappings apply to all presets and are remembered. No footswitch? Use the computer keyboard (next section), an app like TouchOSC on your phone over network MIDI (Mac: Audio MIDI Setup → Network), or a cheap USB/Bluetooth footswitch.</p>
+
+<h2 id="en-keys">Keyboard</h2>
+<div class="scroll"><table>
+  <tr><th>Key</th><th>Action</th></tr>
+  <tr><td><kbd>1</kbd>…<kbd>9</kbd></td><td>Toggle gate, comp, drive, pedal, amp, EQ, cab, delay, reverb</td></tr>
+  <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Previous / next preset</td></tr>
+  <tr><td><kbd>T</kbd></td><td>Tap tempo</td></tr>
+  <tr><td><kbd>U</kbd></td><td>Tuner</td></tr>
+  <tr><td><kbd>B</kbd></td><td>Bypass</td></tr>
+  <tr><td><kbd>L</kbd></td><td>MIDI learn</td></tr>
+  <tr><td><kbd>Esc</kbd></td><td>Closes panels, the tuner and learn mode</td></tr>
+</table></div>
+
+<h2 id="en-tuner">Tuner</h2>
+<p><b>TUNER</b> (or <kbd>U</kbd>) opens the tuner. It reads the clean signal and works from a 5-string's low B upwards. The note turns green within ±3 cents. "Mute while tuning" silences the output; you can change the reference A (A4, 440 Hz by default).</p>
+
+<h2 id="en-trouble">Troubleshooting</h2>
+<dl class="faq">
+  <dt>I hear nothing.</dt>
+  <dd>Check input, channel and output in AUDIO; watch the IN meter while you play. Make sure BYPASS and OUTPUT aren't at zero and the browser has microphone permission (icon in the address bar).</dd>
+  <dt>I hear the dry bass under the rig.</dt>
+  <dd>That's the interface's direct monitoring: turn it off (button or DIRECT mix on the interface).</dd>
+  <dt>Crackles or dropouts.</dt>
+  <dd>Check DSP in the bottom bar: if it's high, remove the NAM pedal or use lighter captures ("lite", "feather"), close other tabs and apps. On a laptop, plug in the charger.</dd>
+  <dt>Too much latency.</dt>
+  <dd>No Bluetooth; use the interface at 48 kHz with a small buffer. The AUDIO panel Status shows the estimate.</dd>
+  <dt>Howling or feedback.</dt>
+  <dd>You're using the computer mic with its speakers: use headphones or the interface.</dd>
+  <dt>A model won't load.</dt>
+  <dd>Make sure it's a valid <code>.nam</code> (not a zip). The message gives the reason; the previous model stays active.</dd>
+  <dt>I see ⚠ next to the rate.</dt>
+  <dd>The capture was trained at another rate: set <i>Engine rate</i> in AUDIO to match (and your interface too).</dd>
+  <dt>MIDI finds nothing.</dt>
+  <dd>Safari has no Web MIDI: use Chrome, Edge or Firefox. Connect the controller and reload the page.</dd>
+  <dt>My presets and models are gone.</dt>
+  <dd>Site data was probably cleared, or you were in a private window. Import your latest EXPORT BANK file.</dd>
+</dl>
+
+<h2 id="en-privacy">Privacy and credits</h2>
+<ul>
+  <li>Your sound never leaves your computer: all processing happens in the browser. Models, IRs and presets are stored in the browser and uploaded nowhere.</li>
+  <li>Engine: <a href="https://github.com/sdatkinson/NeuralAmpModelerCore" target="_blank" rel="noopener">NeuralAmpModelerCore</a> by Steven Atkinson (MIT), compiled to WebAssembly; Eigen (MPL-2.0); nlohmann/json (MIT).</li>
+  <li>The captures you download belong to their authors: respect their licenses.</li>
+  <li>Code, issues and ideas: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener">github.com/MassimoDanieli/profondo</a>.</li>
+</ul>
+<footer>Profondo · MIT License · Massimo Danieli</footer>
+</main>
+</div>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const get = () => { try { return localStorage.getItem('profondo.lang'); } catch { return null; } };
+  const set = (l) => { try { localStorage.setItem('profondo.lang', l); } catch {} };
+  const fromUrl = new URLSearchParams(location.search).get('lang');
+  let lang = fromUrl || get() || ((navigator.language || 'en').toLowerCase().startsWith('it') ? 'it' : 'en');
+  if (lang !== 'it' && lang !== 'en') lang = 'en';
+  const apply = (l) => {
+    root.lang = l;
+    document.querySelectorAll('[data-set-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.setLang === l)));
+    document.querySelectorAll('.top .btn [data-lang]').forEach((s) => (s.style.display = s.dataset.lang === l ? 'inline' : 'none'));
+    // keep the reader on the matching section when switching
+    const h = location.hash.replace(/^#(it|en)-/, '');
+    if (h && h !== location.hash) { const t = document.getElementById(l + '-' + h); if (t) { history.replaceState(null, '', '#' + t.id); t.scrollIntoView(); } }
+  };
+  document.querySelectorAll('[data-set-lang]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.setLang; set(lang); apply(lang); }));
+  apply(lang);
+  // highlight the current section in the table of contents
+  const io = new IntersectionObserver((es) => es.forEach((e) => {
+    if (!e.isIntersecting) return;
+    document.querySelectorAll('nav.toc a').forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id));
+  }), { rootMargin: '-80px 0px -70% 0px' });
+  document.querySelectorAll('main h2[id]').forEach((h) => io.observe(h));
+})();
+</script>
+</body>
+</html>

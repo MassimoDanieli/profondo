@@ -5,7 +5,7 @@ import { Library, LS, hashBytes } from './store.js';
 import { Midi } from './midi.js';
 import { detectPitch, noteOf } from './tuner.js';
 
-const VERSION = 'v0.3';
+const VERSION = 'v0.3.1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -559,17 +559,16 @@ function renderMidiMaps() {
 }
 
 function openHelp() {
+  const it = (navigator.language || '').toLowerCase().startsWith('it');
+  const lang = (() => { try { return localStorage.getItem('profondo.lang'); } catch { return null; } })() || (it ? 'it' : 'en');
   modal(`<h2>PROFONDO ${VERSION}</h2>
   <p>A Neural Amp Modeler rig for bass that runs in the browser — macOS, Windows and Linux. The NAM engine is the official <b>NeuralAmpModelerCore</b> (A1 WaveNet, LSTM, A2 / slimmable) compiled to WebAssembly.</p>
+  <p><a class="btn gold" href="guide.html?lang=${lang}" target="_blank" rel="noopener" style="display:inline-block;text-decoration:none;padding:9px 14px">📖 GUIDA COMPLETA / FULL GUIDE ↗</a></p>
   <h3>SIGNAL CHAIN</h3>
-  <p>Gate → Compressor → Drive (with clean blend) → NAM pedal → NAM amp → EQ → Cab IR → Clean blend / crossover → Tape delay → Reverb → Master + safety limiter.</p>
-  <h3>BASS TIPS</h3>
-  <ul><li><b>Clean blend + X-over</b>: with X-OVER at e.g. 150 Hz the amp gets only what's above it and BLEND brings back the clean DI below it — tight lows under a dirty amp.</li>
-  <li><b>Delay low cut</b> keeps the echoes out of the low end; start at 120–200 Hz.</li>
-  <li><b>Normalize</b> uses the model's loudness metadata so switching captures doesn't jump in volume.</li></ul>
-  <h3>MODELS</h3>
-  <p>Get .nam captures and cab IRs from <a href="https://www.tone3000.com" target="_blank" rel="noopener" style="color:var(--gold)">TONE3000</a> (search "bass"). Drop the .nam on the amp display or the NAM pedal, the .wav on the cab display or the reverb. Files stay in your browser.</p>
-  <h3>MIDI</h3><p>See the MIDI panel: learn, Program Change, expression, tap tempo, MIDI clock.</p>`);
+  <p>Gate → Compressor → Drive → NAM pedal → NAM amp → EQ → Cab IR → Clean blend (crossover, align, phase) → Tape delay → Reverb → Master + safety limiter.</p>
+  <h3>KEYS</h3>
+  <p><kbd>1</kbd>–<kbd>9</kbd> blocks · <kbd>←</kbd> <kbd>→</kbd> presets · <kbd>T</kbd> tap · <kbd>U</kbd> tuner · <kbd>B</kbd> bypass · <kbd>L</kbd> MIDI learn · <kbd>Esc</kbd> close</p>
+  <p class="note">Code and issues: <a href="https://github.com/MassimoDanieli/profondo" target="_blank" rel="noopener" style="color:var(--gold)">github.com/MassimoDanieli/profondo</a></p>`);
 }
 
 // ---------------- tuner ----------------

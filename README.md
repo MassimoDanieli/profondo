@@ -21,6 +21,8 @@ Audio input requires `https://` or `http://localhost`, so don't open `index.html
 
 Best in **Chrome or Edge** (Web MIDI + output-device selection). Firefox works incl. MIDI; Safari runs the audio but has no Web MIDI.
 
+**User guide (IT/EN):** https://profondo.massimodanieli.com/guide.html
+
 ## Chain
 
 Gate → Compressor → Drive (blend) → **NAM pedal** → **NAM amp** → EQ (bass, low-mid, sweepable mid, treble, presence)
