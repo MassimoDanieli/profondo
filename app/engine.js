@@ -144,7 +144,7 @@ export class Engine {
     const p = this.p, c = this.ctx, t = c.currentTime, T = 0.02;
     const ramp = (param, v) => param.setTargetAtTime(v, t, T);
     const front = {};
-    for (const id of ids) if (/^(in\.|amp\.|normalize|bypass)/.test(id) && id !== 'in.channel') front[id] = typeof p[id] === 'boolean' ? (p[id] ? 1 : 0) : p[id];
+    for (const id of ids) if (/^(in\.|amp\.|calib\.|normalize|bypass)/.test(id) && id !== 'in.channel') front[id] = typeof p[id] === 'boolean' ? (p[id] ? 1 : 0) : p[id];
     if (Object.keys(front).length) this.front.port.postMessage({ type: 'params', p: front });
 
     const eqOn = p['eq.on'] !== false && !p.bypass;

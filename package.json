@@ -1,6 +1,6 @@
 {
   "name": "profondo",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Neural Amp Modeler bass rig in the browser",
   "type": "module",

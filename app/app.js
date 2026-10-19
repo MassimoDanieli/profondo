@@ -6,7 +6,7 @@ import { Midi } from './midi.js';
 import { detectPitch, noteOf } from './tuner.js';
 import { PEDALS, PEDAL_ORDER, MAX_PEDALS, NAM_CATS, namCategory, newUid, variantsOf, paramsFor, pedalDefaults, LEGACY_BOARD, LEGACY_KEYS } from './pedals.js';
 
-const VERSION = 'v0.4.0';
+const VERSION = 'v0.4.1';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -23,14 +23,16 @@ const P = {
   'rev.level': ['LEVEL', -40, 0, -20, 'dB'], 'rev.predelay': ['PRE-DELAY', 0, 150, 20, 'ms'], 'rev.hiroll': ['HIGH ROLL', 1000, 16000, 6000, 'Hz', 1], 'rev.locut': ['LOW CUT', 20, 800, 150, 'Hz', 1],
   'in.gain': ['INPUT', -24, 24, 0, 'dB'], 'bpm': ['BPM', 40, 240, 120, ''],
 };
-const BOOL = { 'amp.on': true, 'eq.on': true, 'cab.on': true, 'delay.on': false, 'rev.on': false,
+const BOOL = { 'calib.on': false, 'amp.on': true, 'eq.on': true, 'cab.on': true, 'delay.on': false, 'rev.on': false,
   'delay.pingpong': false, 'delay.sync': false, 'blend.phase': false, normalize: true, bypass: false };
-const ENUM = { 'delay.div': '1/4' };
+const ENUM = { 'delay.div': '1/4', 'calib.dbu': 12 };
 const POST_BLOCKS = [['amp.on', 'AMP'], ['eq.on', 'EQ'], ['cab.on', 'CAB'], ['delay.on', 'DELAY'], ['rev.on', 'REVERB']];
 const SHORT = { gate: 'GATE', comp: 'COMP', drive: 'DRIVE', octave: 'OCT', envf: 'ENV', chorus: 'CHORUS', nam: 'NAM' };
 // chain buttons / keys 1–9: the board's pedals, then the fixed blocks
 const chainBlocks = () => [...state.board.map((b) => [`pb.${b.uid}.on`, SHORT[b.type] || b.type.toUpperCase()]), ...POST_BLOCKS];
-const NOT_IN_PRESET = new Set(['bypass', 'normalize', 'in.gain']);
+const NOT_IN_PRESET = new Set(['bypass', 'normalize', 'in.gain', 'calib.on', 'calib.dbu']);
+// interface instrument-input reference (dBu at 0 dBFS, minimum gain) from the manufacturers' specs
+const INTERFACES = [['scarlett4', 'Focusrite Scarlett (4th gen) — instrument in', 12], ['scarlett3', 'Focusrite Scarlett (3rd gen) — instrument in', 12.5], ['scarlett2', 'Focusrite Scarlett (2nd gen) — instrument in', 13], ['id14mk2', 'Audient iD14 MKII — DI in', 12]];
 
 function defaults() {
   const d = {};
@@ -374,6 +376,7 @@ function modelInfoText(m) {
   if (d.arch) parts.push(d.arch);
   if (i.loudness < 900) parts.push(`${i.loudness.toFixed(1)} dB${state.p.normalize ? ' → norm' : ''}`);
   if (d.by) parts.push('by ' + d.by);
+  if (state.p['calib.on']) parts.push(i.inputLevel < 900 ? `cal ${(state.p['calib.dbu'] - i.inputLevel) >= 0 ? '+' : ''}${(state.p['calib.dbu'] - i.inputLevel).toFixed(1)} dB` : 'no cal data');
   parts.push('loaded');
   return parts.join(' · ');
 }
@@ -616,7 +619,7 @@ function snapshot(name) {
 async function recall(i) {
   const pr = state.bank[i]; if (!pr) return;
   state.cur = i; LS.set('cur', i);
-  const keep = { bypass: state.p.bypass, normalize: state.p.normalize, 'in.gain': state.p['in.gain'] };
+  const keep = { bypass: state.p.bypass, normalize: state.p.normalize, 'in.gain': state.p['in.gain'], 'calib.on': state.p['calib.on'], 'calib.dbu': state.p['calib.dbu'] };
   const norm = normalizePreset(pr);
   const oldNam = state.board.filter((b) => b.type === 'nam').map((b) => b.uid);
   state.board = norm.board;
@@ -657,7 +660,7 @@ function savePresetAs() {
   state.bank.push(snapshot(name)); state.cur = state.bank.length - 1; LS.set('cur', state.cur); saveBank(); state.dirty = false; renderPresetName(); toast(`Saved as ${String(state.cur + 1).padStart(2, '0')}`);
 }
 let sessT = 0;
-function saveSession() { clearTimeout(sessT); sessT = setTimeout(() => LS.set('session', { ...snapshot('session'), dirty: state.dirty, globals: { normalize: state.p.normalize, 'in.gain': state.p['in.gain'] } }), 300); }
+function saveSession() { clearTimeout(sessT); sessT = setTimeout(() => LS.set('session', { ...snapshot('session'), dirty: state.dirty, globals: { normalize: state.p.normalize, 'in.gain': state.p['in.gain'], 'calib.on': state.p['calib.on'], 'calib.dbu': state.p['calib.dbu'] } }), 300); }
 
 // ---------------- modals ----------------
 function modal(html) { $('#modalBody').innerHTML = html; $('#modal').classList.remove('hidden'); return $('#modalBody'); }
@@ -761,6 +764,7 @@ async function openAudio() {
     <label>Output device <select id="aOut"></select></label>
     <label>Input trim <input type="range" id="aTrim" min="-24" max="24" step="0.5" style="width:220px"> <span id="aTrimV"></span></label>
     <label>Engine rate <select id="aRate"><option value="48000">48 kHz (NAM standard)</option><option value="44100">44.1 kHz</option><option value="96000">96 kHz</option></select> <span class="note">reloads the page · must match the captures you use</span></label>
+    <div style="display:flex;gap:10px;align-items:center;margin:10px 0"><button class="btn gold" id="aCal">CALIBRATE INPUT…</button><span class="note" id="aCalState"></span></div>
     <h3>STATUS</h3>
     <div class="activity" id="aStat"></div>
     <h3>TIPS</h3>
@@ -778,6 +782,8 @@ async function openAudio() {
   if (!engine.ctx.setSinkId) $('#aOut', b).disabled = true;
   const trim = $('#aTrim', b); trim.value = state.p['in.gain']; $('#aTrimV', b).textContent = fmt('in.gain', state.p['in.gain']);
   trim.oninput = () => { setParam('in.gain', +trim.value); $('#aTrimV', b).textContent = fmt('in.gain', +trim.value); };
+  $('#aCalState', b).textContent = state.p['calib.on'] ? `calibrated: ${state.p['calib.dbu']} dBu = 0 dBFS` : 'not calibrated';
+  $('#aCal', b).onclick = openCalibration;
   const stat = () => { const s = engine.stream?.getAudioTracks()[0]?.getSettings() || {}; $('#aStat', b).textContent = `context ${engine.ctx.sampleRate} Hz · ${engine.ctx.state} · input ${s.channelCount || '?'} ch @ ${s.sampleRate || '?'} Hz · est. latency ${engine.latencyMs()} ms`; };
   stat();
   $('#aIn', b).onchange = async (e) => { cfg.input = e.target.value; LS.set('audio', cfg); try { await engine.startInput(cfg.input, cfg.channel || 0); } catch (err) { toast(err.message); } stat(); };
@@ -785,6 +791,71 @@ async function openAudio() {
   $('#aRate', b).value = String(cfg.rate || 48000);
   $('#aRate', b).onchange = (e) => { cfg.rate = +e.target.value; LS.set('audio', cfg); saveSession(); setTimeout(() => location.reload(), 400); };
   $('#aOut', b).onchange = async (e) => { cfg.output = e.target.value; LS.set('audio', cfg); try { await engine.setOutput(cfg.output); } catch (err) { toast(err.message); } stat(); };
+}
+
+function openCalibration() {
+  const cfg = LS.get('audio', {});
+  const b = modal(`<h2>CALIBRATE INPUT</h2>
+    <p>NAM captures remember how loud the gear was driven: <i>input_level_dbu</i> is the analog level that hit 0 dBFS when the capture was made.
+    Tell Profondo the same figure for your interface and each capture gets driven like the real thing: a quiet passage stays clean, digging in breaks up where it should.</p>
+    <h3>1 · YOUR INTERFACE</h3>
+    <label>Interface <select id="cIf"><option value="custom">Other / custom…</option>${INTERFACES.map(([k, n, v]) => `<option value="${k}">${n} (${v} dBu)</option>`).join('')}</select></label>
+    <label>Level at 0 dBFS <input type="number" id="cDbu" step="0.5" min="-10" max="30" style="width:90px"> dBu <span class="note">spec sheet: "max input level", instrument / Hi-Z input, at minimum gain</span></label>
+    <h3>2 · SET THE INTERFACE</h3>
+    <ul class="note"><li>Instrument (INST / Hi-Z) input selected, any pad off.</li><li>Gain knob at <b>minimum</b>: that's where the spec figure is true. (With more gain the figure is lower by the same number of dB.)</li><li>Profondo's Input trim at 0 dB (it's reset when you enable calibration).</li></ul>
+    <h3>3 · CHECK YOUR LEVEL</h3>
+    <p><button class="btn" id="cTest">PLAY HARD FOR 5 SECONDS</button> <span id="cRes" class="note"></span></p>
+    <div class="mbar" style="width:100%;height:8px"><i id="cBar"></i></div>
+    <h3>4 · APPLY</h3>
+    <label><input type="checkbox" id="cOn"> Calibrate NAM captures (amp and NAM pedals) to this interface</label>
+    <div id="cModels" class="note"></div>
+    <p class="note">Captures without <i>input_level_dbu</i> metadata are left as they are. Pedals placed before a capture change its level, as with real gear.</p>
+    <p><button class="btn gold" id="cSave">SAVE</button></p>`);
+  const sel = $('#cIf', b), num = $('#cDbu', b);
+  num.value = state.p['calib.dbu'];
+  sel.value = cfg.iface && INTERFACES.some((x) => x[0] === cfg.iface) ? cfg.iface : 'custom';
+  sel.onchange = () => { const it = INTERFACES.find((x) => x[0] === sel.value); if (it) num.value = it[2]; showModels(); };
+  num.oninput = () => { sel.value = INTERFACES.find((x) => x[2] === +num.value && x[0] === sel.value) ? sel.value : 'custom'; showModels(); };
+  $('#cOn', b).checked = !!state.p['calib.on'];
+  $('#cOn', b).onchange = showModels;
+  function showModels() {
+    const dbu = +num.value, on = $('#cOn', b).checked, rows = [];
+    for (const [slot, m] of Object.entries(state.models)) {
+      if (!m || !(slot === 'amp' || slot.startsWith('nam:'))) continue;
+      const IL = m.info?.inputLevel;
+      rows.push(`${slot === 'amp' ? 'AMP' : 'PEDAL'} · ${m.name}: ` + (IL < 900 ? `captured at ${IL} dBu → ${on ? ((dbu - IL) >= 0 ? '+' : '') + (dbu - IL).toFixed(1) + ' dB' : 'not applied'}` : 'no calibration data in the file'));
+    }
+    $('#cModels', b).innerHTML = rows.length ? rows.map((r) => `<div></div>`).join('') : 'No NAM captures loaded yet.';
+    [...$('#cModels', b).children].forEach((d, i) => (d.textContent = rows[i]));
+  }
+  showModels();
+  $('#cTest', b).onclick = () => {
+    if (!engine) return toast('Start audio first');
+    const btn = $('#cTest', b); btn.disabled = true;
+    let pk = 0; const t0 = performance.now();
+    const trim = Math.pow(10, (state.p['in.gain'] || 0) / 20); // the meter is after the trim
+    const h = (m) => { pk = Math.max(pk, m.inPk / trim); $('#cBar', b).style.width = toPct(m.inPk / trim) + '%'; };
+    engine.on('meter', h);
+    const tick = setInterval(() => {
+      const left = 5 - (performance.now() - t0) / 1000;
+      btn.textContent = left > 0 ? `PLAYING… ${left.toFixed(0)}` : 'PLAY HARD FOR 5 SECONDS';
+      if (left > 0) return;
+      clearInterval(tick); btn.disabled = false; engine.listeners.meter = engine.listeners.meter.filter((f) => f !== h);
+      const dbfs = 20 * Math.log10(pk + 1e-9), dbu = dbfs + (+num.value);
+      const res = $('#cRes', b);
+      if (pk < 0.003) res.textContent = 'No signal: check the cable, the input channel (AUDIO) and the INST switch.';
+      else if (pk > 0.97) res.textContent = `Clipping (peak ${dbfs.toFixed(1)} dBFS): switch on the interface pad. With a pad, add its amount to the dBu figure (−10 dB pad → ${(+num.value + 10).toFixed(1)} dBu).`;
+      else res.textContent = `Peak ${dbfs.toFixed(1)} dBFS ≈ ${dbu >= 0 ? '+' : ''}${dbu.toFixed(1)} dBu from your bass. ${dbfs > -6 ? 'Hot but clean — fine.' : dbfs < -30 ? 'Very low: a passive bass with low output? It will still be calibrated correctly.' : 'Good headroom.'}`;
+    }, 200);
+  };
+  $('#cSave', b).onclick = () => {
+    const dbu = Math.max(-10, Math.min(30, +num.value || 12)), on = $('#cOn', b).checked;
+    cfg.iface = sel.value; LS.set('audio', cfg);
+    setParam('calib.dbu', dbu); setParam('calib.on', on);
+    if (on && state.p['in.gain'] !== 0) setParam('in.gain', 0);
+    renderModels(); closeModal();
+    toast(on ? `Input calibrated: ${dbu} dBu = 0 dBFS` : 'Input calibration off');
+  };
 }
 
 function openMidi() {

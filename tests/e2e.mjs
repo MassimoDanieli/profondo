@@ -52,6 +52,27 @@ const w = await page.evaluate(async () => {
   out.expected = expected; out.measured = num / den; out.maxErr = md;
   out.loads = msgs.filter((m) => m.type === 'loaded').map((m) => ({ slot: m.slot, worst: m.maxStepMs }));
   out.shared = dbg.shared; out.keys = dbg.cache;
+  // input calibration: the model must see the input scaled by (interface dBu - capture dBu)
+  {
+    const IL = bA.info.inputLevel, k = Math.pow(10, (12 - IL) / 20);
+    const c2 = new OfflineAudioContext(1, N, 48000); await c2.audioWorklet.addModule('worklet.js');
+    const n2 = new AudioWorkletNode(c2, 'profondo-front', { numberOfInputs: 1, numberOfOutputs: 2, outputChannelCount: [1, 1], channelCount: 1, channelCountMode: 'explicit' });
+    const m2 = []; n2.port.onmessage = (e) => m2.push(e.data);
+    n2.port.postMessage({ type: 'wasm', bytes: wbytes.slice(0) }); await new Promise((r) => { const iv = setInterval(() => { if (m2.some((m) => m.type === 'ready')) { clearInterval(iv); r(); } }, 10); });
+    n2.port.postMessage({ type: 'params', p: { normalize: 0, 'calib.on': 1, 'calib.dbu': 12 } });
+    const bC = await build('/models/A2.nam');
+    n2.port.postMessage({ type: 'adopt', slot: 'amp', id: 'A2', activate: true, info: bC.info, snapshot: bC.snapshot, req: 5 }, [bC.snapshot]);
+    const s2 = c2.createBufferSource(); const bf = c2.createBuffer(1, N, 48000); bf.getChannelData(0).set(sig); s2.buffer = bf; s2.connect(n2); n2.connect(c2.destination, 0); s2.start();
+    const r2 = (await c2.startRendering()).getChannelData(0);
+    // fresh reference instance fed with the scaled signal
+    let mem2; const h2 = new Proxy({}, { get: (_, n) => n === 'environ_sizes_get' ? (a, b) => { const v = new DataView(mem2.buffer); v.setUint32(a, 0, true); v.setUint32(b, 0, true); return 0; } : n === 'fd_prestat_get' ? () => 8 : () => 0 });
+    const r2i = new WebAssembly.Instance(mod, { wasi_snapshot_preview1: h2 }); mem2 = r2i.exports.memory; const y = r2i.exports; y._initialize();
+    const p2 = y.nam_alloc(mb.length); new Uint8Array(mem2.buffer).set(mb, p2); y.nam_load(p2, mb.length, 48000, 128);
+    const ip2 = y.nam_in() >> 2, op2 = y.nam_out() >> 2, R2 = new Float32Array(N);
+    for (let q = 0; q < N / 128; q++) { const f = new Float32Array(mem2.buffer); for (let i = 0; i < 128; i++) f[ip2 + i] = sig[q * 128 + i] * k; y.nam_process(128); R2.set(new Float32Array(mem2.buffer).subarray(op2, op2 + 128), q * 128); }
+    let e2 = 0; for (let i = 16384; i < N; i++) e2 = Math.max(e2, Math.abs(r2[i] - R2[i]));
+    out.calib = { IL, gainDb: 12 - IL, maxErr: e2 };
+  }
   const bad = await wcall({ type: 'load', req: 9, bytes: new TextEncoder().encode('{"version":"0.5.0","architecture":"Nope","config":{},"weights":[]}').buffer, sampleRate: 48000 });
   out.bad = bad.type;
   return out;
@@ -60,6 +81,7 @@ check(Math.abs(w.measured / w.expected - 1) < 1e-4 && w.maxErr < 1e-4, 'normaliz
 check(w.loads.length >= 1 && w.loads.every((l) => l.worst <= 5), 'models adopted slice-wise on the audio thread', JSON.stringify(w.loads));
 check(!w.shared && w.keys.length === 2, 'pedal and amp get independent instances of the same model');
 check(w.bad === 'error', 'invalid model rejected by the loader');
+check(w.calib && w.calib.IL < 900 && w.calib.maxErr < 1e-4, 'input calibration drives the capture by (interface − capture) dBu', w.calib ? `capture ${w.calib.IL} dBu → ${w.calib.gainDb.toFixed(2)} dB, err ${w.calib.maxErr.toExponential(1)}` : 'n/a');
 
 // ---- 2. full app
 await page.click('#btnStart'); await page.waitForTimeout(2000);

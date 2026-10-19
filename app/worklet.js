@@ -72,7 +72,14 @@ class Smooth { constructor(v) { this.v = v; this.t = v; } step(k = 0.002) { this
 // (smoothed, so toggling Normalize or swapping models never jumps).
 class Slot {
   constructor() { this.cur = null; this.prev = null; this.fade = 1; this.gain = new Smooth(1); this.prevGain = 1;
-    this.bufA = new Float32Array(BLOCK_MAX); this.bufB = new Float32Array(BLOCK_MAX); }
+    this.bufA = new Float32Array(BLOCK_MAX); this.bufB = new Float32Array(BLOCK_MAX); this.bufC = new Float32Array(BLOCK_MAX); }
+  // input calibration: scale what the model sees so the user's interface matches the capture's dBu reference
+  feed(entry, x, out, n) {
+    const c = entry.calib ?? 1;
+    if (c === 1) { entry.inst.process(x, out, n); return; }
+    const b = this.bufC; for (let i = 0; i < n; i++) b[i] = x[i] * c;
+    entry.inst.process(b, out, n);
+  }
   set(entry) {
     if (entry === this.cur) return;
     this.prev = this.cur; this.prevGain = this.gain.v; this.cur = entry; this.fade = 0;
@@ -81,10 +88,10 @@ class Slot {
   get active() { return !!(this.cur || (this.prev && this.fade < 1)); }
   run(x, out, n, sr) {
     const fadeLen = 0.02 * sr;
-    if (this.cur) this.cur.inst.process(x, this.bufA, n); else this.bufA.set(x.subarray(0, n));
+    if (this.cur) this.feed(this.cur, x, this.bufA, n); else this.bufA.set(x.subarray(0, n));
     this.gain.t = this.cur ? this.cur.norm : 1;
     if (this.fade < 1) {
-      if (this.prev) this.prev.inst.process(x, this.bufB, n); else this.bufB.set(x.subarray(0, n));
+      if (this.prev) this.feed(this.prev, x, this.bufB, n); else this.bufB.set(x.subarray(0, n));
       for (let i = 0; i < n; i++) {
         const g = Math.min(1, this.fade + i / fadeLen);
         out[i] = this.bufA[i] * this.gain.step() * g + this.bufB[i] * this.prevGain * (1 - g);
@@ -138,7 +145,7 @@ class ProfondoFront extends AudioWorkletProcessor {
     this.maxStepMs = 0;
     this.slots = { amp: new Slot() };
     this.board = []; this.boardMap = new Map();
-    this.p = { 'in.gain': 0, 'amp.on': 1, 'amp.input': 0, 'amp.output': 0, 'normalize': 1, 'bypass': 0 };
+    this.p = { 'in.gain': 0, 'amp.on': 1, 'amp.input': 0, 'amp.output': 0, 'normalize': 1, 'bypass': 0, 'calib.on': 0, 'calib.dbu': 12 };
     this.g = { in: new Smooth(1), ampIn: new Smooth(1), ampOut: new Smooth(1), wAmp: new Smooth(1) };
     this.tubeLP = new OnePole(); this.tubeLP.setLP(5500, this.sr); this.tubeDC = new OnePole(); this.tubeDC.setLP(15, this.sr);
     this.b1 = new Float32Array(BLOCK_MAX); this.b2 = new Float32Array(BLOCK_MAX); this.b3 = new Float32Array(BLOCK_MAX);
@@ -174,6 +181,8 @@ class ProfondoFront extends AudioWorkletProcessor {
     if (!entry) return;
     const L = entry.info.loudness;
     entry.norm = (this.p.normalize && L < 900) ? dbToLin(-18 - L) : 1;
+    const IL = entry.info.inputLevel; // dBu that hit 0 dBFS when the capture was made
+    entry.calib = (this.p['calib.on'] && IL < 900) ? dbToLin(this.p['calib.dbu'] - IL) : 1;
   }
 
   onMsg(m) {

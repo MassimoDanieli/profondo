@@ -148,6 +148,8 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
   <tr><td>Engine rate</td><td>48 kHz di serie. Cambialo solo se usi catture addestrate a 44,1 o 96 kHz. Ricarica la pagina.</td></tr>
   <tr><td>Status</td><td>Frequenza, canali e <b>latenza stimata</b> del sistema.</td></tr>
 </table></div>
+<h3>Calibrare l'ingresso</h3>
+<p>Le catture NAM ricordano quanto forte era pilotato l'ampli originale (<i>input_level_dbu</i>). In <b>AUDIO → CALIBRATE INPUT…</b> scegli la tua scheda (o scrivi il livello in dBu a 0 dBFS dell'ingresso strumento, dalle specifiche, con il gain al minimo), controlla il livello suonando forte e attiva la calibrazione: ogni cattura viene pilotata come l'originale. Il display mostra la correzione applicata (<code>cal −2.8 dB</code>). Con un pad attivo, aggiungi i suoi dB al valore.</p>
 <h3>Latenza</h3>
 <p>Il browser aggiunge un po' di latenza rispetto a un'app nativa. Per tenerla bassa:</p>
 <ul>
@@ -367,6 +369,8 @@ html[lang="it"] .wrap[data-lang="it"], html[lang="en"] .wrap[data-lang="en"] { d
   <tr><td>Engine rate</td><td>48 kHz by default. Change it only for captures trained at 44.1 or 96 kHz. Reloads the page.</td></tr>
   <tr><td>Status</td><td>Sample rate, channels and <b>estimated latency</b>.</td></tr>
 </table></div>
+<h3>Calibrating the input</h3>
+<p>NAM captures remember how hard the original amp was driven (<i>input_level_dbu</i>). In <b>AUDIO → CALIBRATE INPUT…</b> pick your interface (or type its instrument-input level in dBu at 0 dBFS, from the spec sheet, at minimum gain), check your level by playing hard, and enable calibration: each capture is driven like the original. The display shows the correction (<code>cal −2.8 dB</code>). With a pad on, add its dB to the figure.</p>
 <h3>Latency</h3>
 <p>A browser adds a little latency compared with a native app. To keep it low:</p>
 <ul>
