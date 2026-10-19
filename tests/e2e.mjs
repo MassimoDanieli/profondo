@@ -255,6 +255,15 @@ await page.setViewportSize({ width: 390, height: 900 }); await page.waitForTimeo
 check((await page.evaluate(() => document.documentElement.scrollWidth)) <= 390, 'no horizontal scroll at phone width');
 check(errors.length === 0, 'no page errors', errors.join(' | '));
 
+// ---- 4b. fit to window: the whole rig is visible without scrolling on a laptop-sized window
+{
+  const fp = await browser.newPage({ viewport: { width: 1440, height: 800 } });
+  await fp.goto(server.url); await fp.evaluate(() => localStorage.removeItem('profondo.fit')); await fp.reload(); await fp.waitForTimeout(600);
+  const f = await fp.evaluate(() => ({ zoom: +document.querySelector('#rig').style.zoom, sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight }));
+  check(f.zoom > 0.5 && f.zoom < 1.2 && f.sw <= 1440 && f.sh <= 800, 'fit mode: whole rig inside a 1440×800 window', JSON.stringify(f));
+  await fp.close();
+}
+
 // ---- 5. guide page
 const gp = await browser.newPage(); const gErr = []; gp.on('pageerror', (e) => gErr.push(e.message));
 await gp.goto(server.url + '/guide.html?lang=it');

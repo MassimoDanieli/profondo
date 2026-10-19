@@ -186,21 +186,30 @@ body.learn .learning { outline: 2px solid #49b6ff !important; animation: blink .
 .toast.show { transform: translateX(-50%) translateY(0); }
 
 @media (max-width: 1100px) {
-  .top { grid-template-columns: 1fr 1fr; }
-  .lcd { grid-column: 1 / -1; order: 3; }
-  .chain-hint { display: none; }
+  /* (these narrow-screen rules are skipped in fit mode, where the whole rig is scaled instead) */
+  html:not(.fit) .top { grid-template-columns: 1fr 1fr; }
+  html:not(.fit) .lcd { grid-column: 1 / -1; order: 3; }
+  html:not(.fit) .chain-hint { display: none; }
 }
 @media (max-width: 640px) {
-  body { padding: 8px; }
-  #rig { padding: 12px; }
-  .top { grid-template-columns: 1fr; }
-  .lcd { grid-template-columns: 1fr; }
-  .lcd-cell + .lcd-cell { border-left: 0; border-top: 1px solid #3a2a12; }
-  .top-right { flex-direction: row; }
-  .row { padding-left: 0; } .side-label { display: none; }
-  .pedal, .unit { min-width: 0; width: 100%; flex: 1 1 100%; }
-  .board { width: 100%; }
-  .unit { flex-direction: column; } .unit .knobs { border-left: 0; padding-left: 0; }
-  .amp-sec { width: 100%; border-left: 0 !important; margin-bottom: 10px; }
-  .kn-row { flex-wrap: wrap; }
+  html:not(.fit) body { padding: 8px; }
+  html:not(.fit) #rig { padding: 12px; }
+  html:not(.fit) .top { grid-template-columns: 1fr; }
+  html:not(.fit) .lcd { grid-template-columns: 1fr; }
+  html:not(.fit) .lcd-cell + .lcd-cell { border-left: 0; border-top: 1px solid #3a2a12; }
+  html:not(.fit) .top-right { flex-direction: row; }
+  html:not(.fit) .row { padding-left: 0; } .side-label { display: none; }
+  html:not(.fit) .pedal, html:not(.fit) .unit { min-width: 0; width: 100%; flex: 1 1 100%; }
+  html:not(.fit) .board { width: 100%; }
+  html:not(.fit) .unit { flex-direction: column; } .unit .knobs { border-left: 0; padding-left: 0; }
+  html:not(.fit) .amp-sec { width: 100%; border-left: 0 !important; margin-bottom: 10px; }
+  html:not(.fit) .kn-row { flex-wrap: wrap; }
 }
+
+/* ---------- fit to window: the rig keeps its desktop layout and is scaled as a whole ---------- */
+html.fit body { padding: 8px; }
+html.fit.fit-all body { overflow: hidden; height: 100vh; }
+html.fit #rig { width: max-content; min-width: 1320px; max-width: none; }
+html.fit .board { flex-wrap: nowrap; flex: none; }
+html.fit.board-wrap .board { flex-wrap: wrap; flex: 1; max-width: 1290px; }
+html.fit .chain-hint { display: none; }

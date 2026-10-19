@@ -6,7 +6,7 @@ import { Midi } from './midi.js';
 import { detectPitch, noteOf } from './tuner.js';
 import { PEDALS, PEDAL_ORDER, MAX_PEDALS, NAM_CATS, namCategory, newUid, variantsOf, paramsFor, pedalDefaults, LEGACY_BOARD, LEGACY_KEYS } from './pedals.js';
 
-const VERSION = 'v0.4.1';
+const VERSION = 'v0.4.2';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
@@ -501,7 +501,7 @@ const engineBoard = () => state.board.map((b) => {
   const p = {}; for (const k of Object.keys(PEDALS[b.type].params)) p[k] = state.p[`pb.${b.uid}.${k}`];
   return { uid: b.uid, type: b.type, variant: b.variant, on: !!state.p[`pb.${b.uid}.on`], p };
 });
-function syncBoard() { engine?.setBoard(engineBoard()); renderBoard(); renderChain(); renderModels(); markMapped(); }
+function syncBoard() { engine?.setBoard(engineBoard()); renderBoard(); renderChain(); renderModels(); markMapped(); applyFit(); }
 
 function renderBoard() {
   const el = $('#board'); if (!el) return;
@@ -604,6 +604,35 @@ function wireBoardReorder() {
     const from = state.board.findIndex((b) => b.uid === uid); let to = targetIndex(e);
     if (to > from) to--;
     movePedal(uid, 0, to);
+  });
+}
+
+// ---------------- fit to window ----------------
+// 'fit': the whole rig fits the window (like a plugin window) · 'width': fits the width, scrolls vertically · '100': natural size
+const FIT_LABEL = { fit: 'FIT ▣', width: 'FIT ↔', 100: '100%' };
+let fitRaf = 0;
+function applyFit() {
+  cancelAnimationFrame(fitRaf);
+  fitRaf = requestAnimationFrame(() => {
+    const mode = LS.get('fit', 'fit'), root = document.documentElement, rig = $('#rig');
+    const btn = $('#btnFit'); if (btn) btn.textContent = FIT_LABEL[mode] || 'FIT';
+    const phone = innerWidth < 760;
+    root.classList.toggle('fit', mode !== '100' && !phone);
+    root.classList.toggle('fit-all', mode === 'fit' && !phone);
+    if (mode === '100' || phone) { rig.style.zoom = ''; return; }
+    // measure at natural size (same frame: nothing is painted in between), with the pedals on one row
+    // and wrapped on several, and keep whichever lets the rig be bigger
+    const zoomFor = (wrap) => {
+      root.classList.toggle('board-wrap', wrap); rig.style.zoom = 1;
+      const W = rig.offsetWidth, H = rig.offsetHeight, m = 28;
+      let z = (innerWidth - m) / W;
+      if (mode === 'fit') z = Math.min(z, (innerHeight - m) / H);
+      return Math.max(0.4, Math.min(2, z));
+    };
+    const z1 = zoomFor(false), z2 = state.board.length > 3 ? zoomFor(true) : 0;
+    const wrap = z2 > z1 * 1.04;
+    root.classList.toggle('board-wrap', wrap);
+    rig.style.zoom = (Math.floor((wrap ? z2 : z1) * 1000) / 1000).toFixed(3);
   });
 }
 
@@ -1033,6 +1062,8 @@ function init() {
 
   $$('.knob').forEach(buildKnob);
   renderBoard(); renderChain(); wireBoardReorder();
+  addEventListener('resize', applyFit); document.fonts?.ready.then(applyFit); applyFit();
+  $('#btnFit').onclick = () => { const order = ['fit', 'width', '100'], cur = LS.get('fit', 'fit'); const next = order[(order.indexOf(cur) + 1) % 3]; LS.set('fit', next); applyFit(); toast({ fit: 'Fit: whole rig in the window', width: 'Fit: window width (scroll for the rest)', 100: 'Natural size (100%)' }[next]); };
   // delay subdivisions
   const dd = $('#delayDiv'); DIV_NAMES.forEach((n) => { const o = document.createElement('option'); o.value = n; o.textContent = n; dd.appendChild(o); });
   dd.onchange = () => setParam('delay.div', dd.value);
