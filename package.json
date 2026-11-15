@@ -15,6 +15,6 @@
     "test": "npm run test:fidelity && npm run test:e2e"
   },
   "devDependencies": {
-    "playwright": "1.56.0"
+    "playwright": "1.65.1"
   }
 }
